@@ -7,14 +7,10 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
+  <div class="container" style="height: 100vh; display: flex; flex-direction: column;">
     <h1>Learning Progress Tracker</h1>
     <input type="file" id="upload" accept=".docx" />
-    <div id="content-container"></div>
-    <div id="navigation-buttons">
-      <button id="prev-btn" disabled>Previous</button>
-      <button id="next-btn" disabled>Next</button>
-    </div>
+    <div id="content-container" style="flex: 1 1 auto; overflow-y: auto; border: 1px solid #ccc; padding: 1em; background: #fff; min-height: 0;"></div>
     <div id="progress-bar-container">
       <label for="progress-bar">Progress:</label>
       <progress id="progress-bar" value="0" max="100"></progress>
