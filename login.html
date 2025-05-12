@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Login</h1>
+    <form id="loginForm">
+        <input type="text" id="name" placeholder="Enter your name" required><br><br>
+        <label><input type="radio" name="role" value="instructor" required> Instructor</label>
+        <label><input type="radio" name="role" value="student" required> Student</label><br><br>
+        <button type="submit" class="btn">Login</button>
+    </form>
+    <script>
+    document.getElementById('loginForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const name = document.getElementById('name').value;
+        const role = document.querySelector('input[name="role"]:checked').value;
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'include',
+            body: JSON.stringify({name, role})
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (role === 'instructor') window.location.href = 'instructor.html';
+            else window.location.href = 'student.html';
+        } else {
+            alert('Login failed: ' + data.message);
+        }
+    };
+    </script>
+</body>
+</html> 

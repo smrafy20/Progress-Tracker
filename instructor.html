@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructor Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Instructor Dashboard</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="videoFile" accept="video/*" required>
+        <button type="submit" class="btn">Upload Video</button>
+    </form>
+    <h2>Uploaded Videos</h2>
+    <table border="1" id="videosTable">
+        <thead>
+            <tr><th>File Name</th><th>File Type</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <script>
+    async function loadVideos() {
+        const res = await fetch('/api/videos', {credentials: 'include'});
+        const videos = await res.json();
+        const tbody = document.querySelector('#videosTable tbody');
+        tbody.innerHTML = '';
+        videos.forEach(v => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+    document.getElementById('uploadForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('videoFile');
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        const res = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('Upload successful!');
+            loadVideos();
+        } else {
+            alert('Upload failed: ' + data.message);
+        }
+    };
+    loadVideos();
+    </script>
+</body>
+</html> 

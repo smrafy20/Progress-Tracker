@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Student Dashboard</h1>
+    <table border="1" id="videosTable">
+        <thead>
+            <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Action</th></tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <script>
+    let studentName = null;
+    async function getStudentName() {
+        // Try to get from session (via backend)
+        const res = await fetch('/api/get_session_info', {credentials: 'include'}); // Changed to GET and new endpoint
+        // We'll fallback to prompt if not found
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.name) {
+                studentName = data.name;
+            } else {
+                studentName = prompt('Enter your name:');
+            }
+        } else {
+            studentName = prompt('Enter your name:');
+        }
+    }
+    async function loadVideos() {
+        if (!studentName) await getStudentName();
+        const res = await fetch('/api/videos', {credentials: 'include'});
+        const videos = await res.json();
+        const tbody = document.querySelector('#videosTable tbody');
+        tbody.innerHTML = '';
+        for (const v of videos) {
+            let progress = 0;
+            try {
+                const progRes = await fetch(`/api/progress/${studentName}/${v.filename}`, {credentials: 'include'});
+                const progData = await progRes.json();
+                progress = progData.progress || 0;
+            } catch {}
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${progress.toFixed(1)}</td><td><button class='btn' onclick="window.location.href='index.html?video=${encodeURIComponent(v.filename)}'">Watch</button></td>`;
+            tbody.appendChild(tr);
+        }
+    }
+    loadVideos();
+    </script>
+</body>
+</html>
