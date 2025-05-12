@@ -15,7 +15,7 @@
     <h2>Uploaded Videos</h2>
     <table border="1" id="videosTable">
         <thead>
-            <tr><th>File Name</th><th>File Type</th></tr>
+            <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Actions</th></tr>
         </thead>
         <tbody></tbody>
     </table>
@@ -27,10 +27,35 @@
         tbody.innerHTML = '';
         videos.forEach(v => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td>`;
+            // Format the date for better readability
+            const lastUpdated = v.last_updated ? new Date(v.last_updated).toLocaleString() : 'N/A';
+            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${lastUpdated}</td><td><button class="btn reset" onclick="deleteVideo('${v.filename}')">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
+
+    async function deleteVideo(filename) {
+        if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+            return;
+        }
+        try {
+            const res = await fetch(`/api/video/${filename}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.message || 'Video deleted successfully!');
+                loadVideos(); // Refresh the list
+            } else {
+                alert('Delete failed: ' + (data.message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error deleting video:', error);
+            alert('An error occurred while trying to delete the video.');
+        }
+    }
+
     document.getElementById('uploadForm').onsubmit = async function(e) {
         e.preventDefault();
         const fileInput = document.getElementById('videoFile');
@@ -52,4 +77,4 @@
     loadVideos();
     </script>
 </body>
-</html> 
+</html>

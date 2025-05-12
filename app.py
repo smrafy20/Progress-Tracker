@@ -3,6 +3,8 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
 import redis
+import datetime  # Added for timestamp
+import json
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # For session management
@@ -45,15 +47,56 @@ def upload_video():
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-        # Save video metadata in Redis
-        r.hset('videos', filename, 'video')
-        return jsonify({'success': True, 'filename': filename, 'filetype': 'video'})
+        # Save video metadata in Redis including timestamp
+        now = datetime.datetime.now().isoformat()
+        video_data = {'filetype': 'video', 'last_updated': now}
+        r.hset('videos', filename, json.dumps(video_data))  # Store as JSON string
+        return jsonify({'success': True, 'filename': filename, 'filetype': 'video', 'last_updated': now})
     return jsonify({'success': False, 'message': 'Invalid file type'}), 400
 
 @app.route('/api/videos', methods=['GET'])
 def list_videos():
-    videos = r.hgetall('videos')
-    return jsonify([{'filename': k, 'filetype': v} for k, v in videos.items()])
+    videos_raw = r.hgetall('videos')
+    videos_list = []
+    for k, v_json in videos_raw.items():
+        try:
+            v_data = json.loads(v_json)  # Parse JSON string
+            videos_list.append({'filename': k, 'filetype': v_data.get('filetype'), 'last_updated': v_data.get('last_updated')})
+        except json.JSONDecodeError:
+            # Handle cases where data might not be a valid JSON (e.g., old data)
+            videos_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A'})  # Fallback
+    return jsonify(videos_list)
+
+@app.route('/api/video/<filename>', methods=['DELETE'])
+def delete_video_file(filename):
+    if session.get('role') != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    # Secure the filename before using it in file paths
+    secure_name = secure_filename(filename)
+    if not secure_name:  # or if secure_name != filename if you want to be very strict
+        return jsonify({'success': False, 'message': 'Invalid filename'}), 400
+
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_name)
+
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        else:
+            # If file doesn't exist, it might have been deleted manually.
+            # We can still proceed to remove it from Redis.
+            pass  # Or return a specific message if needed
+
+        # Remove from Redis
+        result = r.hdel('videos', secure_name)
+        if result > 0:  # hdel returns the number of fields that were removed
+            return jsonify({'success': True, 'message': f'{secure_name} deleted successfully'})
+        else:
+            # This could mean the video was not in Redis, possibly already deleted
+            return jsonify({'success': False, 'message': f'Could not find {secure_name} in database, but removed from filesystem if it existed.'}), 404
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/get_session_info', methods=['GET'])
 def get_session_info():
