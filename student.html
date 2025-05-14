@@ -50,6 +50,12 @@
         }
     }
     loadVideos();
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            loadVideos();
+        }
+    });
     </script>
 </body>
 </html>
