@@ -7,14 +7,41 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Student Dashboard</h1>
-    <table border="1" id="videosTable">
-        <thead>
-            <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Action</th></tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <nav>
+        <ul>
+            <li><span class="site-title">Video Platform</span></li>
+            <li>
+                <!-- Navigation links can be added here if needed -->
+                <!-- Example: <a href="other_page.html">Other Page</a> -->
+            </li>
+            <li><button onclick="logout()" class="logout-btn">Logout</button></li>
+        </ul>
+    </nav>
+
+    <div class="main-container">
+        <h1>Student Dashboard</h1>
+        <table border="1" id="videosTable">
+            <thead>
+                <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Action</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
     <script>
+    async function logout() {
+        const res = await fetch('/api/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.href = 'login.html';
+        } else {
+            alert('Logout failed. Please try again.');
+        }
+    }
+
     let studentName = null;
     async function getStudentName() {
         // Try to get from session (via backend)

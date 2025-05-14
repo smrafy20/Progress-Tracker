@@ -3,17 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Login - Video Platform</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Login</h1>
-    <form id="loginForm">
-        <input type="text" id="name" placeholder="Enter your name" required><br><br>
-        <label><input type="radio" name="role" value="instructor" required> Instructor</label>
-        <label><input type="radio" name="role" value="student" required> Student</label><br><br>
-        <button type="submit" class="btn">Login</button>
-    </form>
+    <nav>
+        <ul>
+            <li><span class="site-title">Video Platform</span></li>
+            <li></li> <!-- Empty cell for spacing -->
+            <li></li> <!-- Empty cell for spacing -->
+        </ul>
+    </nav>
+
+    <div class="main-container">
+        <h1>Login</h1>
+        <form id="loginForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" placeholder="Enter your name" required>
+            
+            <div class="radio-group" style="margin-bottom: 15px;">
+                <label>Role:</label><br>
+                <label><input type="radio" name="role" value="instructor" required> Instructor</label>
+                <label><input type="radio" name="role" value="student" required> Student</label>
+            </div>
+            
+            <button type="submit" class="btn">Login</button>
+        </form>
+    </div>
+
     <script>
     document.getElementById('loginForm').onsubmit = async function(e) {
         e.preventDefault();

@@ -7,19 +7,46 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Instructor Dashboard</h1>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="videoFile" accept="video/*" required>
-        <button type="submit" class="btn">Upload Video</button>
-    </form>
-    <h2>Uploaded Videos</h2>
-    <table border="1" id="videosTable">
-        <thead>
-            <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Actions</th></tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <nav>
+        <ul>
+            <li><span class="site-title">Video Platform</span></li>
+            <li>
+                <!-- Navigation links can be added here if needed -->
+            </li>
+            <li><button onclick="logout()" class="logout-btn">Logout</button></li>
+        </ul>
+    </nav>
+
+    <div class="main-container">
+        <h1>Instructor Dashboard</h1>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <label for="videoFile">Upload new video:</label>
+            <input type="file" id="videoFile" accept="video/*" required>
+            <button type="submit" class="btn">Upload Video</button>
+        </form>
+        <h2>Uploaded Videos</h2>
+        <table border="1" id="videosTable">
+            <thead>
+                <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Actions</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
     <script>
+    async function logout() {
+        const res = await fetch('/api/logout', {
+            method: 'POST',
+            credentials: 'include'
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.href = 'login.html';
+        } else {
+            alert('Logout failed. Please try again.');
+        }
+    }
+
     async function loadVideos() {
         const res = await fetch('/api/videos', {credentials: 'include'});
         const videos = await res.json();

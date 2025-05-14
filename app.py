@@ -34,6 +34,12 @@ def login():
     session['role'] = role
     return jsonify({'success': True, 'role': role})
 
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.pop('name', None)
+    session.pop('role', None)
+    return jsonify({'success': True, 'message': 'Logged out successfully'})
+
 @app.route('/api/upload', methods=['POST'])
 def upload_video():
     if session.get('role') != 'instructor':
