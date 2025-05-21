@@ -27,7 +27,7 @@
         <h2>Uploaded Videos</h2>
         <table border="1" id="videosTable">
             <thead>
-                <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Actions</th></tr>
+                <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Uploaded By</th><th>Actions</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -56,7 +56,8 @@
             const tr = document.createElement('tr');
             // Format the date for better readability
             const lastUpdated = v.last_updated ? new Date(v.last_updated).toLocaleString() : 'N/A';
-            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${lastUpdated}</td><td><button class="btn reset" onclick="deleteVideo('${v.filename}')">Delete</button></td>`;
+            const instructorName = v.instructor_name || 'Unknown'; // Display instructor name
+            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${lastUpdated}</td><td>${instructorName}</td><td><button class="btn reset" onclick="deleteVideo('${v.filename}')">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
