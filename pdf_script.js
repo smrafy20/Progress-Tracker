@@ -19,6 +19,7 @@ let totalPages = 0;
 let pdfFilename = ''; // Will be set from URL query param
 let studentName = null; // Will be fetched from session
 let maxProgressPercent = 0; // Max percentage read
+let currentZoomLevel = 1.0; // Default zoom level
 
 // --- Helper Functions ---
 function getQueryParam(name) {
@@ -117,7 +118,19 @@ async function renderPage(pageNumber) {
     if (!pdfDoc) return;
     try {
         const page = await pdfDoc.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1.5 });
+        
+        // Get viewport dimensions
+        const originalViewport = page.getViewport({ scale: 1.0 });
+        
+        // Calculate scale to fit the viewer width
+        const viewerWidth = pdfViewer.clientWidth - 40; // subtract padding
+        const baseScale = viewerWidth / originalViewport.width;
+        
+        // Apply the current zoom level
+        const scale = baseScale * currentZoomLevel;
+        
+        // Create viewport with calculated scale
+        const viewport = page.getViewport({ scale: scale });
 
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -131,6 +144,9 @@ async function renderPage(pageNumber) {
             canvasContext: context,
             viewport: viewport
         };
+        
+        // Update the zoom level display
+        document.getElementById('zoomLevel').textContent = Math.round(currentZoomLevel * 100) + '%';
 
         await page.render(renderContext).promise;
 
@@ -193,6 +209,26 @@ function updateProgressTextColor(percentage) {
 }
 
 // --- Event Listeners ---
+
+// Zoom controls
+document.getElementById('zoomIn').addEventListener('click', () => {
+    if (currentZoomLevel < 2.0) {
+        currentZoomLevel += 0.1;
+        renderPage(currentPage);
+    }
+});
+
+document.getElementById('zoomOut').addEventListener('click', () => {
+    if (currentZoomLevel > 0.5) {
+        currentZoomLevel -= 0.1;
+        renderPage(currentPage);
+    }
+});
+
+document.getElementById('fitWidth').addEventListener('click', () => {
+    currentZoomLevel = 1.0; // Reset to default scale which is fit-to-width
+    renderPage(currentPage);
+});
 
 prevButton.addEventListener('click', () => {
     if (currentPage > 1) {
