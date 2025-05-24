@@ -19,10 +19,9 @@
     </nav>
 
     <div class="main-container">
-        <h1>Student Dashboard</h1>
-        <table border="1" id="videosTable">
+        <h1>Student Dashboard</h1>        <table border="1" id="videosTable">
             <thead>
-                <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Action</th></tr>
+                <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Uploaded By</th><th>Action</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -70,9 +69,9 @@
                 const progRes = await fetch(`/api/progress/${studentName}/${v.filename}`, {credentials: 'include'});
                 const progData = await progRes.json();
                 progress = progData.progress || 0;
-            } catch {}
-            const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${progress.toFixed(1)}</td><td><button class='btn' onclick="window.location.href='index.html?video=${encodeURIComponent(v.filename)}'">Watch</button></td>`;
+            } catch {}            const tr = document.createElement('tr');
+            const instructorName = v.instructor_name || 'Unknown'; // Display instructor name
+            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${progress.toFixed(1)}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='index.html?video=${encodeURIComponent(v.filename)}'">Watch</button></td>`;
             tbody.appendChild(tr);
         }
     }
