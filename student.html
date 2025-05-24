@@ -9,19 +9,29 @@
 <body>
     <nav>
         <ul>
-            <li><span class="site-title">Video Platform</span></li>
+            <li><span class="site-title">Video & PDF Platform</span></li> <!-- Updated site title -->
             <li>
-                <!-- Navigation links can be added here if needed -->
-                <!-- Example: <a href="other_page.html">Other Page</a> -->
+                <a href="index.html">Watch Video</a>
+                <a href="pdf_tracker.html">View PDF</a>
             </li>
             <li><button onclick="logout()" class="logout-btn">Logout</button></li>
         </ul>
     </nav>
 
     <div class="main-container">
-        <h1>Student Dashboard</h1>        <table border="1" id="videosTable">
+        <h1>Student Dashboard</h1>
+        <h2>Available Videos</h2>
+        <table border="1" id="videosTable">
             <thead>
                 <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Uploaded By</th><th>Action</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h2>Available PDFs</h2> <!-- New section for PDFs -->
+        <table border="1" id="pdfsTable">
+            <thead>
+                <tr><th>File Name</th><th>File Type</th><th>Progress (Last Page)</th><th>Uploaded By</th><th>Action</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -44,21 +54,29 @@
     let studentName = null;
     async function getStudentName() {
         // Try to get from session (via backend)
-        const res = await fetch('/api/get_session_info', {credentials: 'include'}); // Changed to GET and new endpoint
-        // We'll fallback to prompt if not found
+        const res = await fetch('/api/get_session_info', {credentials: 'include'});
         if (res.ok) {
             const data = await res.json();
             if (data.success && data.name) {
                 studentName = data.name;
             } else {
-                studentName = prompt('Enter your name:');
+                // Fallback if session is not conclusive or name is missing
+                studentName = prompt('Enter your name to track progress (or login again):');
             }
         } else {
-            studentName = prompt('Enter your name:');
+            // Fallback if API call fails
+            studentName = prompt('Could not fetch session. Enter your name to track progress:');
+        }
+        if (!studentName) {
+            alert("Student name is required to track progress. Please login or refresh and enter your name.");
+            // Optionally redirect to login or disable functionality
         }
     }
+
     async function loadVideos() {
         if (!studentName) await getStudentName();
+        if (!studentName) return; // Stop if student name couldn't be obtained
+
         const res = await fetch('/api/videos', {credentials: 'include'});
         const videos = await res.json();
         const tbody = document.querySelector('#videosTable tbody');
@@ -67,19 +85,55 @@
             let progress = 0;
             try {
                 const progRes = await fetch(`/api/progress/${studentName}/${v.filename}`, {credentials: 'include'});
-                const progData = await progRes.json();
-                progress = progData.progress || 0;
-            } catch {}            const tr = document.createElement('tr');
-            const instructorName = v.instructor_name || 'Unknown'; // Display instructor name
+                if(progRes.ok){
+                    const progData = await progRes.json();
+                    progress = progData.progress || 0;
+                }
+            } catch (e) { console.error("Error fetching video progress:", e); }
+            const tr = document.createElement('tr');
+            const instructorName = v.instructor_name || 'Unknown';
             tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${progress.toFixed(1)}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='index.html?video=${encodeURIComponent(v.filename)}'">Watch</button></td>`;
             tbody.appendChild(tr);
         }
     }
-    loadVideos();
+
+    async function loadPdfs() { // New function to load PDFs
+        if (!studentName) await getStudentName();
+        if (!studentName) return; // Stop if student name couldn't be obtained
+
+        const res = await fetch('/api/pdfs', {credentials: 'include'});
+        const pdfs = await res.json();
+        const tbody = document.querySelector('#pdfsTable tbody');
+        tbody.innerHTML = '';
+        for (const p of pdfs) {
+            let progressText = "Not Started";
+            try {
+                const progRes = await fetch(`/api/progress_pdf/${studentName}/${p.filename}`, {credentials: 'include'});
+                if(progRes.ok){
+                    const progData = await progRes.json();
+                    if (progData && progData.currentPage) {
+                        progressText = `Page ${progData.currentPage} (${progData.maxProgressPercent ? progData.maxProgressPercent.toFixed(1) : '0.0'}%)`;
+                    }
+                }
+            } catch (e) { console.error("Error fetching PDF progress:", e); }
+            const tr = document.createElement('tr');
+            const instructorName = p.instructor_name || 'Unknown';
+            tr.innerHTML = `<td>${p.filename}</td><td>${p.filetype}</td><td>${progressText}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='pdf_tracker.html?pdf=${encodeURIComponent(p.filename)}'">View</button></td>`;
+            tbody.appendChild(tr);
+        }
+    }
+
+    async function initializeDashboard() {
+        await getStudentName(); // Ensure studentName is set first
+        loadVideos();
+        loadPdfs(); // Load PDFs
+    }
+
+    initializeDashboard();
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            loadVideos();
+            initializeDashboard(); // Refresh both videos and PDFs
         }
     });
     </script>

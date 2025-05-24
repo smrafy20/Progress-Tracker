@@ -11,17 +11,25 @@ app.secret_key = 'supersecretkey'  # For session management
 CORS(app, supports_credentials=True)
 
 UPLOAD_FOLDER = 'uploads'
+PDF_UPLOAD_FOLDER = 'uploads_pdf' # New folder for PDFs
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv'}
+ALLOWED_PDF_EXTENSIONS = {'pdf'} # Allowed extensions for PDFs
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['PDF_UPLOAD_FOLDER'] = PDF_UPLOAD_FOLDER # Add to app config
 
 # Connect to Redis
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+if not os.path.exists(PDF_UPLOAD_FOLDER): # Create PDF upload folder
+    os.makedirs(PDF_UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_pdf_file(filename): # New function for PDF files
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF_EXTENSIONS
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -62,11 +70,38 @@ def upload_video():
         video_data = {
             'filetype': 'video',
             'last_updated': now,
-            'instructor_name': instructor_name  # Added instructor name
+            'instructor_name': instructor_name
         }
-        r.hset('videos', filename, json.dumps(video_data))  # Store as JSON string
+        r.hset('videos', filename, json.dumps(video_data))
         return jsonify({'success': True, 'filename': filename, 'filetype': 'video', 'last_updated': now, 'instructor_name': instructor_name})
     return jsonify({'success': False, 'message': 'Invalid file type'}), 400
+
+@app.route('/api/upload_pdf', methods=['POST']) # New endpoint for PDF uploads
+def upload_pdf():
+    if session.get('role') != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    instructor_name = session.get('name')
+    if not instructor_name:
+        return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
+
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'message': 'No file part'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'No selected file'}), 400
+    if file and allowed_pdf_file(file.filename):
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['PDF_UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        now = datetime.datetime.now().isoformat()
+        pdf_data = {
+            'filetype': 'pdf',
+            'last_updated': now,
+            'instructor_name': instructor_name
+        }
+        r.hset('pdfs', filename, json.dumps(pdf_data)) # Store in a new 'pdfs' hash
+        return jsonify({'success': True, 'filename': filename, 'filetype': 'pdf', 'last_updated': now, 'instructor_name': instructor_name})
+    return jsonify({'success': False, 'message': 'Invalid file type, only PDF allowed'}), 400
 
 @app.route('/api/videos', methods=['GET'])
 def list_videos():
@@ -98,6 +133,32 @@ def list_videos():
             if current_role != 'instructor': # Only show to non-instructors if malformed
                 videos_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
     return jsonify(videos_list)
+
+@app.route('/api/pdfs', methods=['GET']) # New endpoint to list PDFs
+def list_pdfs():
+    pdfs_raw = r.hgetall('pdfs')
+    pdfs_list = []
+    current_role = session.get('role')
+    current_instructor_name = session.get('name')
+
+    for k, v_json in pdfs_raw.items():
+        try:
+            v_data = json.loads(v_json)
+            pdf_item = {
+                'filename': k,
+                'filetype': v_data.get('filetype'),
+                'last_updated': v_data.get('last_updated'),
+                'instructor_name': v_data.get('instructor_name')
+            }
+            if current_role == 'instructor':
+                if v_data.get('instructor_name') == current_instructor_name:
+                    pdfs_list.append(pdf_item)
+            else: # For students or other roles, show all pdfs
+                pdfs_list.append(pdf_item)
+        except json.JSONDecodeError:
+            if current_role != 'instructor':
+                 pdfs_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
+    return jsonify(pdfs_list)
 
 @app.route('/api/video/<filename>', methods=['DELETE'])
 def delete_video_file(filename):
@@ -160,6 +221,50 @@ def delete_video_file(filename):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/pdf/<filename>', methods=['DELETE']) # New endpoint to delete a PDF
+def delete_pdf_file(filename):
+    if session.get('role') != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    current_instructor_name = session.get('name')
+    if not current_instructor_name:
+        return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
+
+    secure_name = secure_filename(filename)
+    if not secure_name:
+        return jsonify({'success': False, 'message': 'Invalid filename'}), 400
+
+    pdf_json = r.hget('pdfs', secure_name)
+    if not pdf_json:
+        filepath_check = os.path.join(app.config['PDF_UPLOAD_FOLDER'], secure_name)
+        if os.path.exists(filepath_check):
+             return jsonify({'success': False, 'message': f'{secure_name} not found in database. Cannot confirm ownership.'}), 404
+        return jsonify({'success': False, 'message': f'{secure_name} not found in database or filesystem.'}), 404
+    try:
+        pdf_data = json.loads(pdf_json)
+        owner_instructor = pdf_data.get('instructor_name')
+
+        if owner_instructor != current_instructor_name:
+            return jsonify({'success': False, 'message': 'Unauthorized. You do not own this PDF.'}), 403
+
+        filepath = os.path.join(app.config['PDF_UPLOAD_FOLDER'], secure_name)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        
+        result = r.hdel('pdfs', secure_name)
+        if result > 0:
+            return jsonify({'success': True, 'message': f'{secure_name} deleted successfully.'})
+        else:
+            # This case implies a race condition or unexpected Redis state.
+            fs_status_message = "File on filesystem might have been removed."
+            if os.path.exists(filepath): 
+                fs_status_message = "File on filesystem still exists."
+            return jsonify({'success': False, 'message': f'Error: {secure_name} not found in database for deletion. {fs_status_message}'}), 500
+    except json.JSONDecodeError:
+        return jsonify({'success': False, 'message': 'Error decoding PDF data from database.'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/get_session_info', methods=['GET'])
 def get_session_info():
     if 'name' in session and 'role' in session:
@@ -179,9 +284,39 @@ def progress(student, filename):
         r.set(key, progress)
         return jsonify({'success': True})
 
+@app.route('/api/progress_pdf/<student>/<filename>', methods=['GET', 'POST']) # New endpoint for PDF progress
+def pdf_progress(student, filename):
+    # Key for storing current page and max percentage progress for a student and a PDF
+    # e.g., progress_pdf:student_name:example.pdf -> {"currentPage": 5, "maxProgressPercent": 50}
+    key = f'progress_pdf:{student}:{secure_filename(filename)}'
+    if request.method == 'GET':
+        progress_data_json = r.get(key)
+        if progress_data_json:
+            progress_data = json.loads(progress_data_json)
+            return jsonify({
+                'currentPage': int(progress_data.get('currentPage', 1)),
+                'maxProgressPercent': float(progress_data.get('maxProgressPercent', 0))
+            })
+        return jsonify({'currentPage': 1, 'maxProgressPercent': 0}) # Default if no progress found
+    else: # POST
+        data = request.json
+        current_page = data.get('currentPage')
+        max_progress_percent = data.get('maxProgressPercent')
+        if current_page is not None and max_progress_percent is not None:
+            r.set(key, json.dumps({'currentPage': current_page, 'maxProgressPercent': max_progress_percent}))
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'message': 'Missing currentPage or maxProgressPercent'}), 400
+
 @app.route('/uploads/<filename>')
 def serve_video(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+@app.route('/uploads_pdf/<filename>') # New route to serve PDF files
+def serve_pdf(filename):
+    # The filename from the URL is already URL-decoded by Flask.
+    # It should correspond to the filename stored on the disk (which was secured during upload).
+    # No need to call secure_filename() again here.
+    return send_from_directory(app.config['PDF_UPLOAD_FOLDER'], filename)
 
 @app.route('/')
 def root():
@@ -189,6 +324,8 @@ def root():
 
 @app.route('/<path:path>')
 def static_proxy(path):
+    if path == 'pdf_tracker.html': # Serve pdf_tracker.html
+        return send_from_directory('.', 'pdf_tracker.html')
     return send_from_directory('.', path)
 
 if __name__ == '__main__':
