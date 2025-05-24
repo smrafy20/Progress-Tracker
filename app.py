@@ -8,7 +8,12 @@ import json
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # For session management
-CORS(app, supports_credentials=True)
+# Configure CORS to properly handle credentials
+CORS(app, supports_credentials=True, origins=['http://127.0.0.1:5000', 'http://localhost:5000'])
+
+# Additional session configuration for better security and consistency
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
 
 UPLOAD_FOLDER = 'uploads'
 PDF_UPLOAD_FOLDER = 'uploads_pdf' # New folder for PDFs
@@ -50,10 +55,16 @@ def logout():
 
 @app.route('/api/upload', methods=['POST'])
 def upload_video():
+    print(f"Video upload - Session data: {dict(session)}")  # Debug: print session data
+    print(f"Video upload - Session role: {session.get('role')}")  # Debug: print role
+    print(f"Video upload - Session name: {session.get('name')}")  # Debug: print name
+    
     if session.get('role') != 'instructor':
+        print(f"Video upload authorization failed. Role in session: {session.get('role')}")  # Debug
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
     instructor_name = session.get('name')
     if not instructor_name:
+        print("Video upload - Instructor name not found in session")  # Debug
         return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
 
     if 'file' not in request.files:
@@ -78,30 +89,55 @@ def upload_video():
 
 @app.route('/api/upload_pdf', methods=['POST']) # New endpoint for PDF uploads
 def upload_pdf():
-    if session.get('role') != 'instructor':
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-    instructor_name = session.get('name')
-    if not instructor_name:
-        return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
+    try:
+        print(f"Session data: {dict(session)}")  # Debug: print session data
+        print(f"Session role: {session.get('role')}")  # Debug: print role
+        print(f"Session name: {session.get('name')}")  # Debug: print name
+        
+        if session.get('role') != 'instructor':
+            print(f"Authorization failed. Role in session: {session.get('role')}")  # Debug
+            return jsonify({'success': False, 'message': 'Unauthorized - Please login as instructor'}), 403
+        instructor_name = session.get('name')
+        if not instructor_name:
+            print("Instructor name not found in session")  # Debug
+            return jsonify({'success': False, 'message': 'Instructor name not found in session. Please login again.'}), 401
 
-    if 'file' not in request.files:
-        return jsonify({'success': False, 'message': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'success': False, 'message': 'No selected file'}), 400
-    if file and allowed_pdf_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['PDF_UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        now = datetime.datetime.now().isoformat()
-        pdf_data = {
-            'filetype': 'pdf',
-            'last_updated': now,
-            'instructor_name': instructor_name
-        }
-        r.hset('pdfs', filename, json.dumps(pdf_data)) # Store in a new 'pdfs' hash
-        return jsonify({'success': True, 'filename': filename, 'filetype': 'pdf', 'last_updated': now, 'instructor_name': instructor_name})
-    return jsonify({'success': False, 'message': 'Invalid file type, only PDF allowed'}), 400
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No file part'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'No selected file'}), 400
+        
+        print(f"Attempting to upload file: {file.filename}")  # Debug
+        
+        if file and allowed_pdf_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['PDF_UPLOAD_FOLDER'], filename)
+            
+            # Check if file already exists and handle accordingly
+            if os.path.exists(filepath):
+                print(f"File {filename} already exists, will overwrite")  # Debug
+            
+            file.save(filepath)
+            print(f"File saved to: {filepath}")  # Debug
+            
+            now = datetime.datetime.now().isoformat()
+            pdf_data = {
+                'filetype': 'pdf',
+                'last_updated': now,
+                'instructor_name': instructor_name
+            }
+            r.hset('pdfs', filename, json.dumps(pdf_data)) # Store in a new 'pdfs' hash
+            print(f"PDF data saved to Redis for {filename}")  # Debug
+            
+            return jsonify({'success': True, 'filename': filename, 'filetype': 'pdf', 'last_updated': now, 'instructor_name': instructor_name})
+        else:
+            print(f"File type not allowed for: {file.filename}")  # Debug
+            return jsonify({'success': False, 'message': 'Invalid file type, only PDF allowed'}), 400
+            
+    except Exception as e:
+        print(f"Error in upload_pdf: {str(e)}")  # Debug
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/videos', methods=['GET'])
 def list_videos():
@@ -267,10 +303,19 @@ def delete_pdf_file(filename):
 
 @app.route('/api/get_session_info', methods=['GET'])
 def get_session_info():
+    print(f"Session check - Session data: {dict(session)}")  # Debug
     if 'name' in session and 'role' in session:
         return jsonify({'success': True, 'name': session['name'], 'role': session['role']})
     else:
         return jsonify({'success': False, 'message': 'No active session'}), 401
+
+@app.route('/api/check_auth', methods=['GET'])  # New endpoint to check authentication
+def check_auth():
+    print(f"Auth check - Session data: {dict(session)}")  # Debug
+    if session.get('role') == 'instructor':
+        return jsonify({'success': True, 'message': 'Authorized as instructor', 'name': session.get('name')})
+    else:
+        return jsonify({'success': False, 'message': 'Not authorized as instructor', 'current_role': session.get('role')}), 403
 
 @app.route('/api/progress/<student>/<filename>', methods=['GET', 'POST'])
 def progress(student, filename):

@@ -6,38 +6,26 @@
     <title>Instructor Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <nav>
+<body>    <nav>
         <ul>
-            <li><span class="site-title">Video & PDF Platform</span></li> <!-- Changed site title -->
-            <li>
-                <a href="student.html">Dashboard</a> <!-- Added link to student dashboard -->
+            <li><span class="site-title">Training PRO</span></li> <!-- Changed site title -->
+            <li class="nav-right">
+                <span class="instructor-name">Welcome, <span id="instructorName">Instructor</span></span>
+                <button onclick="logout()" class="logout-btn">Logout</button>
             </li>
-            <li><button onclick="logout()" class="logout-btn">Logout</button></li>
         </ul>
-    </nav>
-
-    <div class="main-container">
-        <h1>Instructor Dashboard</h1>
+    </nav>    <div class="main-container">
+        <div class="dashboard-header">
+            <h1>Instructor Dashboard</h1>
+            <p class="welcome-message">Manage your training materials</p>
+        </div>
         <form id="uploadForm" enctype="multipart/form-data">
-            <label for="videoFile">Upload new video:</label>
-            <input type="file" id="videoFile" accept="video/*">
-            <button type="submit" class="btn">Upload Video</button>
+            <label for="fileInput">Upload new file (Video or PDF):</label>
+            <input type="file" id="fileInput" accept="video/*,.pdf">
+            <button type="submit" class="btn">Upload File</button>
         </form>
-        <form id="uploadPdfForm" enctype="multipart/form-data"> <!-- New form for PDF uploads -->
-            <label for="pdfFile">Upload new PDF:</label>
-            <input type="file" id="pdfFile" accept=".pdf">
-            <button type="submit" class="btn">Upload PDF</button>
-        </form>
-        <h2>Uploaded Videos</h2>
-        <table border="1" id="videosTable">
-            <thead>
-                <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Uploaded By</th><th>Actions</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        <h2>Uploaded PDFs</h2> <!-- New table for PDFs -->
-        <table border="1" id="pdfsTable">
+        <h2>Uploaded Files</h2>
+        <table border="1" id="filesTable">
             <thead>
                 <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Uploaded By</th><th>Actions</th></tr>
             </thead>
@@ -46,6 +34,23 @@
     </div>
 
     <script>
+    // Load instructor name on page load
+    async function loadInstructorInfo() {
+        try {
+            const res = await fetch('/api/get_session_info', {credentials: 'include'});
+            const data = await res.json();
+            if (data.success && data.name) {
+                document.getElementById('instructorName').textContent = data.name;
+            } else {
+                // Redirect to login if session is invalid
+                window.location.href = 'login.html';
+            }
+        } catch (error) {
+            console.error('Error loading instructor info:', error);
+            window.location.href = 'login.html';
+        }
+    }
+
     async function logout() {
         const res = await fetch('/api/logout', {
             method: 'POST',
@@ -57,122 +62,111 @@
         } else {
             alert('Logout failed. Please try again.');
         }
-    }
-
-    async function loadVideos() {
-        const res = await fetch('/api/videos', {credentials: 'include'});
-        const videos = await res.json();
-        const tbody = document.querySelector('#videosTable tbody');
+    }    async function loadFiles() {
+        // Load both videos and PDFs and combine them
+        const [videosRes, pdfsRes] = await Promise.all([
+            fetch('/api/videos', {credentials: 'include'}),
+            fetch('/api/pdfs', {credentials: 'include'})
+        ]);
+        
+        const videos = await videosRes.json();
+        const pdfs = await pdfsRes.json();
+        
+        // Combine both arrays
+        const allFiles = [...videos, ...pdfs];
+        
+        const tbody = document.querySelector('#filesTable tbody');
         tbody.innerHTML = '';
-        videos.forEach(v => {
+        
+        allFiles.forEach(file => {
             const tr = document.createElement('tr');
-            // Format the date for better readability
-            const lastUpdated = v.last_updated ? new Date(v.last_updated).toLocaleString() : 'N/A';
-            const instructorName = v.instructor_name || 'Unknown'; // Display instructor name
-            tr.innerHTML = `<td>${v.filename}</td><td>${v.filetype}</td><td>${lastUpdated}</td><td>${instructorName}</td><td><button class="btn reset" onclick="deleteVideo('${v.filename}')">Delete</button></td>`;
+            const lastUpdated = file.last_updated ? new Date(file.last_updated).toLocaleString() : 'N/A';
+            const instructorName = file.instructor_name || 'Unknown';
+            tr.innerHTML = `<td>${file.filename}</td><td>${file.filetype}</td><td>${lastUpdated}</td><td>${instructorName}</td><td><button class="btn reset" onclick="deleteFile('${file.filename}', '${file.filetype}')">Delete</button></td>`;
             tbody.appendChild(tr);
         });
     }
 
-    async function loadPdfs() { // New function to load PDFs
-        const res = await fetch('/api/pdfs', {credentials: 'include'});
-        const pdfs = await res.json();
-        const tbody = document.querySelector('#pdfsTable tbody');
-        tbody.innerHTML = '';
-        pdfs.forEach(p => {
-            const tr = document.createElement('tr');
-            const lastUpdated = p.last_updated ? new Date(p.last_updated).toLocaleString() : 'N/A';
-            const instructorName = p.instructor_name || 'Unknown';
-            tr.innerHTML = `<td>${p.filename}</td><td>${p.filetype}</td><td>${lastUpdated}</td><td>${instructorName}</td><td><button class="btn reset" onclick="deletePdf('${p.filename}')">Delete</button></td>`;
-            tbody.appendChild(tr);
-        });
-    }
-
-    async function deleteVideo(filename) {
+    async function deleteFile(filename, filetype) {
         if (!confirm(`Are you sure you want to delete ${filename}?`)) {
             return;
         }
         try {
-            const res = await fetch(`/api/video/${filename}`, {
+            const endpoint = filetype === 'pdf' ? `/api/pdf/${filename}` : `/api/video/${filename}`;
+            const res = await fetch(endpoint, {
                 method: 'DELETE',
                 credentials: 'include'
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'Video deleted successfully!');
-                loadVideos(); // Refresh the list
+                alert(data.message || 'File deleted successfully!');
+                loadFiles(); // Refresh the list
             } else {
                 alert('Delete failed: ' + (data.message || 'Unknown error'));
             }
         } catch (error) {
-            console.error('Error deleting video:', error);
-            alert('An error occurred while trying to delete the video.');
+            console.error('Error deleting file:', error);
+            alert('An error occurred while trying to delete the file.');
         }
-    }
-
-    async function deletePdf(filename) { // New function to delete a PDF
-        if (!confirm(`Are you sure you want to delete ${filename}?`)) {
+    }    document.getElementById('uploadForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            alert('Please select a file to upload.');
             return;
         }
+        
+        // Check session before upload
         try {
-            const res = await fetch(`/api/pdf/${filename}`, {
-                method: 'DELETE',
+            const authCheck = await fetch('/api/check_auth', {credentials: 'include'});
+            const authData = await authCheck.json();
+            if (!authData.success) {
+                alert('Session expired or not authorized. Please login again.');
+                window.location.href = 'login.html';
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking auth:', error);
+            alert('Error checking authentication. Please try again.');
+            return;
+        }
+        
+        // Determine file type and endpoint
+        const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        const endpoint = isPDF ? '/api/upload_pdf' : '/api/upload';
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                body: formData,
                 credentials: 'include'
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.message || 'PDF deleted successfully!');
-                loadPdfs(); // Refresh the PDF list
+                alert(`${isPDF ? 'PDF' : 'Video'} upload successful!`);
+                loadFiles(); // Refresh the combined list
+                fileInput.value = ''; // Clear the file input
             } else {
-                alert('Delete failed: ' + (data.message || 'Unknown error'));
+                alert(`Upload failed: ${data.message}`);
+                // If unauthorized, redirect to login
+                if (res.status === 403 || res.status === 401) {
+                    alert('Session expired. Please login again.');
+                    window.location.href = 'login.html';
+                }
             }
         } catch (error) {
-            console.error('Error deleting PDF:', error);
-            alert('An error occurred while trying to delete the PDF.');
-        }
-    }
-
-    document.getElementById('uploadForm').onsubmit = async function(e) {
-        e.preventDefault();
-        const fileInput = document.getElementById('videoFile');
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        const res = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData,
-            credentials: 'include'
-        });
-        const data = await res.json();
-        if (data.success) {
-            alert('Upload successful!');
-            loadVideos();
-        } else {
-            alert('Upload failed: ' + data.message);
+            console.error('Error uploading file:', error);
+            alert('An error occurred while uploading the file.');
         }
     };
 
-    document.getElementById('uploadPdfForm').onsubmit = async function(e) { // New event listener for PDF upload form
-        e.preventDefault();
-        const fileInput = document.getElementById('pdfFile');
-        const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
-        const res = await fetch('/api/upload_pdf', { // Use the new PDF upload endpoint
-            method: 'POST',
-            body: formData,
-            credentials: 'include'
-        });
-        const data = await res.json();
-        if (data.success) {
-            alert('PDF Upload successful!');
-            loadPdfs(); // Refresh the PDF list
-            fileInput.value = null; // Clear the file input
-        } else {
-            alert('PDF Upload failed: ' + data.message);
-        }
-    };
-
-    loadVideos();
-    loadPdfs(); // Load PDFs on page load
+    loadFiles(); // Load all files on page load
+    loadInstructorInfo(); // Load instructor info on page load
     </script>
 </body>
 </html>

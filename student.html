@@ -6,20 +6,21 @@
     <title>Student Dashboard</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <nav>
+<body>    <nav>
         <ul>
-            <li><span class="site-title">Video & PDF Platform</span></li> <!-- Updated site title -->
-            <li>
-                <a href="index.html">Watch Video</a>
-                <a href="pdf_tracker.html">View PDF</a>
+            <li><span class="site-title">Training PRO</span></li> <!-- Updated site title -->
+            <li class="nav-right">
+                <span class="student-name">Welcome, <span id="studentName">Student</span></span>
+                <button onclick="logout()" class="logout-btn">Logout</button>
             </li>
-            <li><button onclick="logout()" class="logout-btn">Logout</button></li>
         </ul>
     </nav>
 
     <div class="main-container">
-        <h1>Student Dashboard</h1>
+        <div class="dashboard-header">
+            <h1>Student Dashboard</h1>
+            <p class="welcome-message">Access your training materials and track your learning progress</p>
+        </div>
         <h2>Available Videos</h2>
         <table border="1" id="videosTable">
             <thead>
@@ -49,9 +50,7 @@
         } else {
             alert('Logout failed. Please try again.');
         }
-    }
-
-    let studentName = null;
+    }    let studentName = null;
     async function getStudentName() {
         // Try to get from session (via backend)
         const res = await fetch('/api/get_session_info', {credentials: 'include'});
@@ -59,13 +58,21 @@
             const data = await res.json();
             if (data.success && data.name) {
                 studentName = data.name;
+                // Update the UI with the student name
+                document.getElementById('studentName').textContent = studentName;
             } else {
                 // Fallback if session is not conclusive or name is missing
                 studentName = prompt('Enter your name to track progress (or login again):');
+                if (studentName) {
+                    document.getElementById('studentName').textContent = studentName;
+                }
             }
         } else {
             // Fallback if API call fails
             studentName = prompt('Could not fetch session. Enter your name to track progress:');
+            if (studentName) {
+                document.getElementById('studentName').textContent = studentName;
+            }
         }
         if (!studentName) {
             alert("Student name is required to track progress. Please login or refresh and enter your name.");

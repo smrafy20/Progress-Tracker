@@ -235,6 +235,25 @@ td .btn {
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
 
+/* Dashboard header styling */
+.dashboard-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.dashboard-header h1 {
+    margin-bottom: 10px;
+}
+
+.welcome-message {
+    color: #666;
+    font-size: 1.1em;
+    margin: 0;
+    font-style: italic;
+}
+
 /* Navbar styles */
 nav {
     background-color: #333;
@@ -255,10 +274,47 @@ nav ul {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 nav ul li {
-    display: inline;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Navigation sections */
+nav ul li.nav-center {
+    flex-grow: 1;
+    text-align: center;
+}
+
+nav ul li.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Instructor & Student name styling */
+.instructor-name, .student-name {
+    color: #4caf50;
+    font-weight: 600;
+    font-size: 0.95em;
+    padding: 0.5em 1em;
+    background: rgba(76, 175, 80, 0.1);
+    border-radius: 20px;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.instructor-name span, .student-name span {
+    color: #ffffff;
+    font-weight: 700;
+}
+
+/* Student specific styling - blue color scheme */
+.student-name {
+    color: #2196f3;
+    background: rgba(33, 150, 243, 0.1);
+    border: 1px solid rgba(33, 150, 243, 0.3);
 }
 
 nav ul li a, nav ul li button {
@@ -301,17 +357,35 @@ nav .site-title {
     nav ul {
         flex-direction: column;
         align-items: flex-start;
+        gap: 10px;
     }
+    
     nav ul li {
         display: block;
-        margin-bottom: 0.5em;
+        width: 100%;
     }
+    
+    nav ul li.nav-center {
+        text-align: left;
+    }
+    
+    nav ul li.nav-right {
+        justify-content: space-between;
+        width: 100%;
+    }
+    
+    .instructor-name {
+        font-size: 0.85em;
+        padding: 0.3em 0.8em;
+    }
+    
     nav .site-title {
         margin-bottom: 0.5em;
     }
+    
     nav ul li button.logout-btn {
-        width: 100%;
-        text-align: left;
+        padding: 0.3em 0.8em;
+        font-size: 0.9em;
     }
 
     h1 {
