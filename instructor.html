@@ -18,10 +18,9 @@
         <div class="dashboard-header">
             <h1>Instructor Dashboard</h1>
             <p class="welcome-message">Manage your training materials</p>
-        </div>
-        <form id="uploadForm" enctype="multipart/form-data">
-            <label for="fileInput">Upload new file (Video or PDF):</label>
-            <input type="file" id="fileInput" accept="video/*,.pdf">
+        </div>        <form id="uploadForm" enctype="multipart/form-data">
+            <label for="fileInput">Upload new file (Video, PDF, or DOCX):</label>
+            <input type="file" id="fileInput" accept="video/*,.pdf,.docx">
             <button type="submit" class="btn">Upload File</button>
         </form>
         <h2>Uploaded Files</h2>
@@ -63,17 +62,19 @@
             alert('Logout failed. Please try again.');
         }
     }    async function loadFiles() {
-        // Load both videos and PDFs and combine them
-        const [videosRes, pdfsRes] = await Promise.all([
+        // Load videos, PDFs, and DOCX files and combine them
+        const [videosRes, pdfsRes, docxRes] = await Promise.all([
             fetch('/api/videos', {credentials: 'include'}),
-            fetch('/api/pdfs', {credentials: 'include'})
+            fetch('/api/pdfs', {credentials: 'include'}),
+            fetch('/api/docx_files', {credentials: 'include'})
         ]);
         
         const videos = await videosRes.json();
         const pdfs = await pdfsRes.json();
+        const docxFiles = await docxRes.json();
         
-        // Combine both arrays
-        const allFiles = [...videos, ...pdfs];
+        // Combine all arrays
+        const allFiles = [...videos, ...pdfs, ...docxFiles];
         
         const tbody = document.querySelector('#filesTable tbody');
         tbody.innerHTML = '';
@@ -90,9 +91,10 @@
     async function deleteFile(filename, filetype) {
         if (!confirm(`Are you sure you want to delete ${filename}?`)) {
             return;
-        }
-        try {
-            const endpoint = filetype === 'pdf' ? `/api/pdf/${filename}` : `/api/video/${filename}`;
+        }        try {
+            const endpoint = filetype === 'pdf' ? `/api/pdf/${filename}` : 
+                           filetype === 'docx' ? `/api/docx/${filename}` : 
+                           `/api/video/${filename}`;
             const res = await fetch(endpoint, {
                 method: 'DELETE',
                 credentials: 'include'
@@ -132,10 +134,12 @@
             alert('Error checking authentication. Please try again.');
             return;
         }
-        
-        // Determine file type and endpoint
+          // Determine file type and endpoint
         const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-        const endpoint = isPDF ? '/api/upload_pdf' : '/api/upload';
+        const isDOCX = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx');
+        const endpoint = isPDF ? '/api/upload_pdf' : 
+                        isDOCX ? '/api/upload_docx' : 
+                        '/api/upload';
         
         const formData = new FormData();
         formData.append('file', file);
@@ -146,9 +150,9 @@
                 body: formData,
                 credentials: 'include'
             });
-            const data = await res.json();
-            if (data.success) {
-                alert(`${isPDF ? 'PDF' : 'Video'} upload successful!`);
+            const data = await res.json();            if (data.success) {
+                const fileType = isPDF ? 'PDF' : isDOCX ? 'DOCX' : 'Video';
+                alert(`${fileType} upload successful!`);
                 loadFiles(); // Refresh the combined list
                 fileInput.value = ''; // Clear the file input
             } else {

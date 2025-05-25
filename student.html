@@ -27,12 +27,18 @@
                 <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Uploaded By</th><th>Action</th></tr>
             </thead>
             <tbody></tbody>
-        </table>
-
-        <h2>Available PDFs</h2> <!-- New section for PDFs -->
+        </table>        <h2>Available PDFs</h2> <!-- New section for PDFs -->
         <table border="1" id="pdfsTable">
             <thead>
                 <tr><th>File Name</th><th>File Type</th><th>Progress (Last Page)</th><th>Uploaded By</th><th>Action</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h2>Available DOCX Files</h2> <!-- New section for DOCX files -->
+        <table border="1" id="docxTable">
+            <thead>
+                <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Uploaded By</th><th>Action</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -127,20 +133,44 @@
             const instructorName = p.instructor_name || 'Unknown';
             tr.innerHTML = `<td>${p.filename}</td><td>${p.filetype}</td><td>${progressText}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='pdf_tracker.html?pdf=${encodeURIComponent(p.filename)}'">View</button></td>`;
             tbody.appendChild(tr);
-        }
-    }
+        }    }
 
-    async function initializeDashboard() {
+    async function loadDocxFiles() { // New function to load DOCX files
+        if (!studentName) await getStudentName();
+        if (!studentName) return; // Stop if student name couldn't be obtained
+
+        const res = await fetch('/api/docx_files', {credentials: 'include'});
+        const docxFiles = await res.json();
+        const tbody = document.querySelector('#docxTable tbody');
+        tbody.innerHTML = '';
+        for (const d of docxFiles) {
+            let progressText = "Not Started";
+            try {
+                const progRes = await fetch(`/api/progress_docx/${studentName}/${d.filename}`, {credentials: 'include'});
+                if(progRes.ok){
+                    const progData = await progRes.json();
+                    if (progData && progData.maxProgressPercent) {
+                        progressText = `${progData.maxProgressPercent.toFixed(1)}%`;
+                    }
+                }
+            } catch (e) { console.error("Error fetching DOCX progress:", e); }
+            const tr = document.createElement('tr');
+            const instructorName = d.instructor_name || 'Unknown';
+            tr.innerHTML = `<td>${d.filename}</td><td>${d.filetype}</td><td>${progressText}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='docx_tracker.html?docx=${encodeURIComponent(d.filename)}'">View</button></td>`;
+            tbody.appendChild(tr);
+        }
+    }    async function initializeDashboard() {
         await getStudentName(); // Ensure studentName is set first
         loadVideos();
         loadPdfs(); // Load PDFs
+        loadDocxFiles(); // Load DOCX files
     }
 
     initializeDashboard();
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            initializeDashboard(); // Refresh both videos and PDFs
+            initializeDashboard(); // Refresh videos, PDFs, and DOCX files
         }
     });
     </script>

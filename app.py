@@ -17,10 +17,13 @@ app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HT
 
 UPLOAD_FOLDER = 'uploads'
 PDF_UPLOAD_FOLDER = 'uploads_pdf' # New folder for PDFs
+DOCX_UPLOAD_FOLDER = 'uploads_docx' # New folder for DOCX files
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv'}
 ALLOWED_PDF_EXTENSIONS = {'pdf'} # Allowed extensions for PDFs
+ALLOWED_DOCX_EXTENSIONS = {'docx'} # Allowed extensions for DOCX files
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['PDF_UPLOAD_FOLDER'] = PDF_UPLOAD_FOLDER # Add to app config
+app.config['DOCX_UPLOAD_FOLDER'] = DOCX_UPLOAD_FOLDER # Add to app config
 
 # Connect to Redis
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -29,12 +32,17 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 if not os.path.exists(PDF_UPLOAD_FOLDER): # Create PDF upload folder
     os.makedirs(PDF_UPLOAD_FOLDER)
+if not os.path.exists(DOCX_UPLOAD_FOLDER): # Create DOCX upload folder
+    os.makedirs(DOCX_UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def allowed_pdf_file(filename): # New function for PDF files
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PDF_EXTENSIONS
+
+def allowed_docx_file(filename): # New function for DOCX files
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOCX_EXTENSIONS
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -117,7 +125,6 @@ def upload_pdf():
             # Check if file already exists and handle accordingly
             if os.path.exists(filepath):
                 print(f"File {filename} already exists, will overwrite")  # Debug
-            
             file.save(filepath)
             print(f"File saved to: {filepath}")  # Debug
             
@@ -133,10 +140,60 @@ def upload_pdf():
             return jsonify({'success': True, 'filename': filename, 'filetype': 'pdf', 'last_updated': now, 'instructor_name': instructor_name})
         else:
             print(f"File type not allowed for: {file.filename}")  # Debug
-            return jsonify({'success': False, 'message': 'Invalid file type, only PDF allowed'}), 400
-            
+            return jsonify({'success': False, 'message': 'Invalid file type, only PDF allowed'}), 400            
     except Exception as e:
         print(f"Error in upload_pdf: {str(e)}")  # Debug
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+@app.route('/api/upload_docx', methods=['POST']) # New endpoint for DOCX uploads
+def upload_docx():
+    try:
+        print(f"DOCX upload - Session data: {dict(session)}")  # Debug: print session data
+        print(f"DOCX upload - Session role: {session.get('role')}")  # Debug: print role
+        print(f"DOCX upload - Session name: {session.get('name')}")  # Debug: print name
+        
+        if session.get('role') != 'instructor':
+            print(f"DOCX upload authorization failed. Role in session: {session.get('role')}")  # Debug
+            return jsonify({'success': False, 'message': 'Unauthorized - Please login as instructor'}), 403
+        instructor_name = session.get('name')
+        if not instructor_name:
+            print("DOCX upload - Instructor name not found in session")  # Debug
+            return jsonify({'success': False, 'message': 'Instructor name not found in session. Please login again.'}), 401
+
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No file part'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'No selected file'}), 400
+        
+        print(f"Attempting to upload DOCX file: {file.filename}")  # Debug
+        
+        if file and allowed_docx_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['DOCX_UPLOAD_FOLDER'], filename)
+            
+            # Check if file already exists and handle accordingly
+            if os.path.exists(filepath):
+                print(f"DOCX file {filename} already exists, will overwrite")  # Debug
+            
+            file.save(filepath)
+            print(f"DOCX file saved to: {filepath}")  # Debug
+            now = datetime.datetime.now().isoformat()
+            docx_data = {
+                'filetype': 'docx',
+                'last_updated': now,
+                'instructor_name': instructor_name
+            }
+            r.hset('docx_files', filename, json.dumps(docx_data)) # Store in a new 'docx_files' hash
+            print(f"DOCX data saved to Redis for {filename}")  # Debug
+            
+            return jsonify({'success': True, 'filename': filename, 'filetype': 'docx', 'last_updated': now, 'instructor_name': instructor_name})
+        else:
+            print(f"File type not allowed for: {file.filename}")  # Debug
+            return jsonify({'success': False, 'message': 'Invalid file type, only DOCX allowed'}), 400
+            
+    except Exception as e:
+        print(f"Error in upload_docx: {str(e)}")  # Debug
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 
 @app.route('/api/videos', methods=['GET'])
@@ -192,9 +249,34 @@ def list_pdfs():
             else: # For students or other roles, show all pdfs
                 pdfs_list.append(pdf_item)
         except json.JSONDecodeError:
-            if current_role != 'instructor':
-                 pdfs_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
+            if current_role != 'instructor':                 pdfs_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
     return jsonify(pdfs_list)
+
+@app.route('/api/docx_files', methods=['GET']) # New endpoint to list DOCX files
+def list_docx_files():
+    docx_raw = r.hgetall('docx_files')
+    docx_list = []
+    current_role = session.get('role')
+    current_instructor_name = session.get('name')
+
+    for k, v_json in docx_raw.items():
+        try:
+            v_data = json.loads(v_json)
+            docx_item = {
+                'filename': k,
+                'filetype': v_data.get('filetype'),
+                'last_updated': v_data.get('last_updated'),
+                'instructor_name': v_data.get('instructor_name')
+            }
+            if current_role == 'instructor':
+                if v_data.get('instructor_name') == current_instructor_name:
+                    docx_list.append(docx_item)
+            else: # For students or other roles, show all docx files
+                docx_list.append(docx_item)
+        except json.JSONDecodeError:
+            if current_role != 'instructor':
+                 docx_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
+    return jsonify(docx_list)
 
 @app.route('/api/video/<filename>', methods=['DELETE'])
 def delete_video_file(filename):
@@ -301,6 +383,50 @@ def delete_pdf_file(filename):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/docx/<filename>', methods=['DELETE']) # New endpoint to delete a DOCX file
+def delete_docx_file(filename):
+    if session.get('role') != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    current_instructor_name = session.get('name')
+    if not current_instructor_name:
+        return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
+
+    secure_name = secure_filename(filename)
+    if not secure_name:
+        return jsonify({'success': False, 'message': 'Invalid filename'}), 400
+
+    docx_json = r.hget('docx_files', secure_name)
+    if not docx_json:
+        filepath_check = os.path.join(app.config['DOCX_UPLOAD_FOLDER'], secure_name)
+        if os.path.exists(filepath_check):
+             return jsonify({'success': False, 'message': f'{secure_name} not found in database. Cannot confirm ownership.'}), 404
+        return jsonify({'success': False, 'message': f'{secure_name} not found in database or filesystem.'}), 404
+    try:
+        docx_data = json.loads(docx_json)
+        owner_instructor = docx_data.get('instructor_name')
+
+        if owner_instructor != current_instructor_name:
+            return jsonify({'success': False, 'message': 'Unauthorized. You do not own this DOCX file.'}), 403
+
+        filepath = os.path.join(app.config['DOCX_UPLOAD_FOLDER'], secure_name)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        
+        result = r.hdel('docx_files', secure_name)
+        if result > 0:
+            return jsonify({'success': True, 'message': f'{secure_name} deleted successfully.'})
+        else:
+            # This case implies a race condition or unexpected Redis state.
+            fs_status_message = "File on filesystem might have been removed."
+            if os.path.exists(filepath): 
+                fs_status_message = "File on filesystem still exists."
+            return jsonify({'success': False, 'message': f'Error: {secure_name} not found in database for deletion. {fs_status_message}'}), 500
+    except json.JSONDecodeError:
+        return jsonify({'success': False, 'message': 'Error decoding DOCX data from database.'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/get_session_info', methods=['GET'])
 def get_session_info():
     print(f"Session check - Session data: {dict(session)}")  # Debug
@@ -352,6 +478,27 @@ def pdf_progress(student, filename):
             return jsonify({'success': True})
         return jsonify({'success': False, 'message': 'Missing currentPage or maxProgressPercent'}), 400
 
+@app.route('/api/progress_docx/<student>/<filename>', methods=['GET', 'POST']) # New endpoint for DOCX progress
+def docx_progress(student, filename):
+    # Key for storing max percentage progress for a student and a DOCX file
+    # e.g., progress_docx:student_name:example.docx -> {"maxProgressPercent": 50}
+    key = f'progress_docx:{student}:{secure_filename(filename)}'
+    if request.method == 'GET':
+        progress_data_json = r.get(key)
+        if progress_data_json:
+            progress_data = json.loads(progress_data_json)
+            return jsonify({
+                'maxProgressPercent': float(progress_data.get('maxProgressPercent', 0))
+            })
+        return jsonify({'maxProgressPercent': 0}) # Default if no progress found
+    else: # POST
+        data = request.json
+        max_progress_percent = data.get('maxProgressPercent')
+        if max_progress_percent is not None:
+            r.set(key, json.dumps({'maxProgressPercent': max_progress_percent}))
+            return jsonify({'success': True})
+        return jsonify({'success': False, 'message': 'Missing maxProgressPercent'}), 400
+
 @app.route('/uploads/<filename>')
 def serve_video(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -363,6 +510,13 @@ def serve_pdf(filename):
     # No need to call secure_filename() again here.
     return send_from_directory(app.config['PDF_UPLOAD_FOLDER'], filename)
 
+@app.route('/uploads_docx/<filename>') # New route to serve DOCX files
+def serve_docx(filename):
+    # The filename from the URL is already URL-decoded by Flask.
+    # It should correspond to the filename stored on the disk (which was secured during upload).
+    # No need to call secure_filename() again here.
+    return send_from_directory(app.config['DOCX_UPLOAD_FOLDER'], filename)
+
 @app.route('/')
 def root():
     return send_from_directory('.', 'login.html')
@@ -371,6 +525,8 @@ def root():
 def static_proxy(path):
     if path == 'pdf_tracker.html': # Serve pdf_tracker.html
         return send_from_directory('.', 'pdf_tracker.html')
+    if path == 'docx_tracker.html': # Serve docx_tracker.html
+        return send_from_directory('.', 'docx_tracker.html')
     return send_from_directory('.', path)
 
 if __name__ == '__main__':
