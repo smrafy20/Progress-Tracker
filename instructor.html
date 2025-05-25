@@ -19,8 +19,8 @@
             <h1>Instructor Dashboard</h1>
             <p class="welcome-message">Manage your training materials</p>
         </div>        <form id="uploadForm" enctype="multipart/form-data">
-            <label for="fileInput">Upload new file (Video, PDF, or DOCX):</label>
-            <input type="file" id="fileInput" accept="video/*,.pdf,.docx">
+            <label for="fileInput">Upload new file (Video, PDF, DOCX, or PPT):</label>
+            <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx">
             <button type="submit" class="btn">Upload File</button>
         </form>
         <h2>Uploaded Files</h2>
@@ -62,19 +62,21 @@
             alert('Logout failed. Please try again.');
         }
     }    async function loadFiles() {
-        // Load videos, PDFs, and DOCX files and combine them
-        const [videosRes, pdfsRes, docxRes] = await Promise.all([
+        // Load videos, PDFs, DOCX files, and PPT files and combine them
+        const [videosRes, pdfsRes, docxRes, pptsRes] = await Promise.all([
             fetch('/api/videos', {credentials: 'include'}),
             fetch('/api/pdfs', {credentials: 'include'}),
-            fetch('/api/docx_files', {credentials: 'include'})
+            fetch('/api/docx_files', {credentials: 'include'}),
+            fetch('/api/ppt_files', {credentials: 'include'})
         ]);
         
         const videos = await videosRes.json();
         const pdfs = await pdfsRes.json();
         const docxFiles = await docxRes.json();
+        const pptFiles = await pptsRes.json();
         
         // Combine all arrays
-        const allFiles = [...videos, ...pdfs, ...docxFiles];
+        const allFiles = [...videos, ...pdfs, ...docxFiles, ...pptFiles];
         
         const tbody = document.querySelector('#filesTable tbody');
         tbody.innerHTML = '';
@@ -94,6 +96,7 @@
         }        try {
             const endpoint = filetype === 'pdf' ? `/api/pdf/${filename}` : 
                            filetype === 'docx' ? `/api/docx/${filename}` : 
+                           filetype === 'ppt' ? `/api/ppt/${filename}` : 
                            `/api/video/${filename}`;
             const res = await fetch(endpoint, {
                 method: 'DELETE',
@@ -133,12 +136,13 @@
             console.error('Error checking auth:', error);
             alert('Error checking authentication. Please try again.');
             return;
-        }
-          // Determine file type and endpoint
+        }          // Determine file type and endpoint
         const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         const isDOCX = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx');
+        const isPPT = file.type === 'application/vnd.ms-powerpoint' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || file.name.toLowerCase().endsWith('.ppt') || file.name.toLowerCase().endsWith('.pptx');
         const endpoint = isPDF ? '/api/upload_pdf' : 
-                        isDOCX ? '/api/upload_docx' : 
+                        isDOCX ? '/api/upload_docx' :
+                        isPPT ? '/api/upload_ppt' :
                         '/api/upload';
         
         const formData = new FormData();
@@ -151,7 +155,7 @@
                 credentials: 'include'
             });
             const data = await res.json();            if (data.success) {
-                const fileType = isPDF ? 'PDF' : isDOCX ? 'DOCX' : 'Video';
+                const fileType = isPDF ? 'PDF' : isDOCX ? 'DOCX' : isPPT ? 'PPT' : 'Video';
                 alert(`${fileType} upload successful!`);
                 loadFiles(); // Refresh the combined list
                 fileInput.value = ''; // Clear the file input
