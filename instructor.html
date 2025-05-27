@@ -34,20 +34,19 @@
                 <!-- Course options will be added dynamically -->
             </select>
         </div>
-        
+
             <label for="fileInput">Upload new file (Video, PDF, DOCX, or PPT):</label>
             <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx">
             <input type="hidden" id="courseIdInput" name="courseId" value="">
             <button type="submit" class="btn">Upload File</button>
         </form>        <h2>Uploaded Files</h2>
         <table border="1" id="filesTable">
-            <thead>
-                <tr>
-                    <th>File Name</th>
+            <thead>                <tr>                    <th>File Name</th>
                     <th>File Type</th>
                     <th>Last Updated</th>
                     <th>Course Name</th>
-                    <th>Instructor Name</th>
+                    <th>Course Created By</th>
+                    <th>Uploaded By</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -166,18 +165,19 @@
             
             const tbody = document.querySelector('#filesTable tbody');
             tbody.innerHTML = '';
-            
-            allFiles.forEach(file => {
-                const tr = document.createElement('tr');
+              allFiles.forEach(file => {                const tr = document.createElement('tr');
                 const lastUpdated = file.last_updated ? new Date(file.last_updated).toLocaleString() : 'N/A';
-                const instructorName = file.instructor_name || 'Unknown';
-                const courseName = courses.find(c => c.id === file.course_id)?.name || 'Unknown Course';
+                const course = courses.find(c => c.id === file.course_id);
+                const courseName = course?.name || 'Unknown Course';
+                const createdBy = course?.instructor || 'Unknown';
+                const uploadedBy = file.instructor_name || 'Unknown';
                 tr.innerHTML = `
                     <td>${file.filename}</td>
                     <td>${file.filetype}</td>
                     <td>${lastUpdated}</td>
                     <td>${courseName}</td>
-                    <td>${instructorName}</td>
+                    <td>${createdBy}</td>
+                    <td>${uploadedBy}</td>
                     <td><button class="btn reset" onclick="deleteFile('${file.filename}', '${file.filetype}')">Delete</button></td>
                 `;
                 tbody.appendChild(tr);
