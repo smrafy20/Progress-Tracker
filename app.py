@@ -1024,7 +1024,7 @@ def get_course(course_id):
 
 @app.route('/api/courses/<course_id>', methods=['DELETE'])
 def delete_course(course_id):
-    """Deletes a course"""
+    """Deletes a course and all associated files"""
     if session.get('role') != 'instructor':
         return jsonify({'success': False, 'message': 'Unauthorized - Only instructors can delete courses'}), 403
     
@@ -1042,13 +1042,60 @@ def delete_course(course_id):
         
         # Find the course
         course_index = None
+        course_to_delete = None
         for i, course in enumerate(courses):
             if course.get('id') == course_id and course.get('instructor') == instructor_name:
                 course_index = i
+                course_to_delete = course
                 break
         
         if course_index is None:
             return jsonify({'success': False, 'message': 'Course not found or you are not authorized to delete it'}), 404
+
+        # Delete all files associated with this course
+        # For PDFs
+        for pdf_key in r.hkeys('pdfs') or []:
+            pdf_data = json.loads(r.hget('pdfs', pdf_key) or '{}')
+            if pdf_data.get('course_id') == course_id:
+                # Delete file from filesystem
+                filepath = os.path.join(app.config['PDF_UPLOAD_FOLDER'], pdf_key)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                # Remove from Redis
+                r.hdel('pdfs', pdf_key)
+
+        # For PPTs
+        for ppt_key in r.hkeys('ppt_files') or []:
+            ppt_data = json.loads(r.hget('ppt_files', ppt_key) or '{}')
+            if ppt_data.get('course_id') == course_id:
+                # Delete file from filesystem
+                filepath = os.path.join(app.config['PPT_UPLOAD_FOLDER'], ppt_key)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                # Remove from Redis
+                r.hdel('ppt_files', ppt_key)
+
+        # For DOCXs
+        for docx_key in r.hkeys('docx_files') or []:
+            docx_data = json.loads(r.hget('docx_files', docx_key) or '{}')
+            if docx_data.get('course_id') == course_id:
+                # Delete file from filesystem
+                filepath = os.path.join(app.config['DOCX_UPLOAD_FOLDER'], docx_key)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                # Remove from Redis
+                r.hdel('docx_files', docx_key)
+
+        # For Videos
+        for video_key in r.hkeys('videos') or []:
+            video_data = json.loads(r.hget('videos', video_key) or '{}')
+            if video_data.get('course_id') == course_id:
+                # Delete file from filesystem
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], video_key)
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                # Remove from Redis
+                r.hdel('videos', video_key)
         
         # Remove the course
         deleted_course = courses.pop(course_index)
@@ -1056,7 +1103,7 @@ def delete_course(course_id):
         # Save updated courses list
         r.set('courses', json.dumps(courses))
         
-        return jsonify({'success': True, 'message': 'Course deleted successfully'})
+        return jsonify({'success': True, 'message': 'Course and all associated files deleted successfully'})
     except Exception as e:
         print(f"Error deleting course: {str(e)}")
         return jsonify({'success': False, 'message': f'Error deleting course: {str(e)}'}), 500

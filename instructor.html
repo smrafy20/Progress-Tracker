@@ -24,7 +24,10 @@
             <button onclick="createCourse()" class="btn">Create New Course</button>
         </div>
         
-        <div class="course-selection">
+
+        
+        <form id="uploadForm" enctype="multipart/form-data">
+       <div class="course-selection">
             <label for="courseSelect">Select Course:</label>
             <select id="courseSelect" onchange="changeCourse()">
                 <option value="">All Courses</option>
@@ -32,7 +35,6 @@
             </select>
         </div>
         
-        <form id="uploadForm" enctype="multipart/form-data">
             <label for="fileInput">Upload new file (Video, PDF, DOCX, or PPT):</label>
             <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx">
             <input type="hidden" id="courseIdInput" name="courseId" value="">
