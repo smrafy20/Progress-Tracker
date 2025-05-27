@@ -35,8 +35,8 @@
             </select>
         </div>
 
-            <label for="fileInput">Upload new file (Video, PDF, DOCX, or PPT):</label>
-            <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx">
+            <label for="fileInput">Upload new file (Video, PDF, DOCX, PPT, or Audio):</label>
+            <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx,.mp3,.wav,.ogg">
             <input type="hidden" id="courseIdInput" name="courseId" value="">
             <button type="submit" class="btn">Upload File</button>
         </form>        <h2>Uploaded Files</h2>
@@ -163,6 +163,11 @@
             const pptFiles = await pptRes.json();
             allFiles.push(...pptFiles.map(p => ({...p, deleteEndpoint: `/api/ppt/${p.filename}`})));
             
+            // Fetch Audio files
+            const audioRes = await fetch(`/api/audio_files${courseParam}`, {credentials: 'include'});
+            const audioFiles = await audioRes.json();
+            allFiles.push(...audioFiles.map(a => ({...a, deleteEndpoint: `/api/audio/${a.filename}`})));
+            
             const tbody = document.querySelector('#filesTable tbody');
             tbody.innerHTML = '';
               allFiles.forEach(file => {                const tr = document.createElement('tr');
@@ -195,6 +200,7 @@
             const endpoint = filetype === 'pdf' ? `/api/pdf/${filename}` : 
                            filetype === 'docx' ? `/api/docx/${filename}` : 
                            filetype === 'ppt' ? `/api/ppt/${filename}` : 
+                           filetype === 'audio' ? `/api/audio/${filename}` :
                            `/api/video/${filename}`;
             const res = await fetch(endpoint, {
                 method: 'DELETE',
@@ -238,9 +244,11 @@
         const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         const isDOCX = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx');
         const isPPT = file.type === 'application/vnd.ms-powerpoint' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || file.name.toLowerCase().endsWith('.ppt') || file.name.toLowerCase().endsWith('.pptx');
+        const isAudio = file.type.startsWith('audio/') || file.name.toLowerCase().endsWith('.mp3') || file.name.toLowerCase().endsWith('.wav') || file.name.toLowerCase().endsWith('.ogg');
         const endpoint = isPDF ? '/api/upload_pdf' : 
                         isDOCX ? '/api/upload_docx' :
                         isPPT ? '/api/upload_ppt' :
+                        isAudio ? '/api/upload_audio' :
                         '/api/upload';
           const formData = new FormData();
         formData.append('file', file);
@@ -263,7 +271,7 @@
                 credentials: 'include'
             });
             const data = await res.json();            if (data.success) {
-                const fileType = isPDF ? 'PDF' : isDOCX ? 'DOCX' : isPPT ? 'PPT' : 'Video';
+                const fileType = isPDF ? 'PDF' : isDOCX ? 'DOCX' : isPPT ? 'PPT' : isAudio ? 'Audio' : 'Video';
                 alert(`${fileType} upload successful!`);
                 loadFiles(); // Refresh the combined list
                 fileInput.value = ''; // Clear the file input

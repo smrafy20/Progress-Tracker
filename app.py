@@ -27,14 +27,17 @@ UPLOAD_FOLDER = 'uploads'
 PDF_UPLOAD_FOLDER = 'uploads_pdf' # New folder for PDFs
 DOCX_UPLOAD_FOLDER = 'uploads_docx' # New folder for DOCX files
 PPT_UPLOAD_FOLDER = 'uploads_ppt' # New folder for PPT files
+AUDIO_UPLOAD_FOLDER = 'uploads_audio' # New folder for Audio files
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv'}
 ALLOWED_PDF_EXTENSIONS = {'pdf'} # Allowed extensions for PDFs
 ALLOWED_DOCX_EXTENSIONS = {'docx'} # Allowed extensions for DOCX files
 ALLOWED_PPT_EXTENSIONS = {'ppt', 'pptx'} # Allowed extensions for PPT files
+ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg'} # Allowed extensions for Audio files
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['PDF_UPLOAD_FOLDER'] = PDF_UPLOAD_FOLDER # Add to app config
 app.config['DOCX_UPLOAD_FOLDER'] = DOCX_UPLOAD_FOLDER # Add to app config
 app.config['PPT_UPLOAD_FOLDER'] = PPT_UPLOAD_FOLDER # Add to app config
+app.config['AUDIO_UPLOAD_FOLDER'] = AUDIO_UPLOAD_FOLDER # Add to app config
 
 # Connect to Redis with error handling
 try:
@@ -99,6 +102,8 @@ if not os.path.exists(DOCX_UPLOAD_FOLDER): # Create DOCX upload folder
     os.makedirs(DOCX_UPLOAD_FOLDER)
 if not os.path.exists(PPT_UPLOAD_FOLDER): # Create PPT upload folder
     os.makedirs(PPT_UPLOAD_FOLDER)
+if not os.path.exists(AUDIO_UPLOAD_FOLDER): # Create AUDIO upload folder
+    os.makedirs(AUDIO_UPLOAD_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -111,6 +116,9 @@ def allowed_docx_file(filename): # New function for DOCX files
 
 def allowed_ppt_file(filename): # New function for PPT files
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PPT_EXTENSIONS
+
+def allowed_audio_file(filename): # New function for Audio files
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -359,6 +367,49 @@ def upload_ppt():
         print(f"Error in upload_ppt: {str(e)}")  # Debug
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 
+@app.route('/api/upload_audio', methods=['POST']) # New endpoint for Audio uploads
+def upload_audio():
+    try:
+        if session.get('role') != 'instructor':
+            return jsonify({'success': False, 'message': 'Unauthorized - Please login as instructor'}), 403
+        instructor_name = session.get('name')
+        if not instructor_name:
+            return jsonify({'success': False, 'message': 'Instructor name not found in session. Please login again.'}), 401
+
+        course_id = request.form.get('courseId')
+        if not course_id:
+            return jsonify({'success': False, 'message': 'Course ID is required'}), 400
+
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'message': 'No file part'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'No selected file'}), 400
+        
+        if file and allowed_audio_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['AUDIO_UPLOAD_FOLDER'], filename)
+            
+            if os.path.exists(filepath):
+                print(f"Audio file {filename} already exists, will overwrite")
+            
+            file.save(filepath)
+            now = datetime.datetime.now().isoformat()
+            audio_data = {
+                'filetype': 'audio',
+                'last_updated': now,
+                'instructor_name': instructor_name,
+                'course_id': course_id
+            }
+            r.hset('audio_files', filename, json.dumps(audio_data))
+            return jsonify({'success': True, 'filename': filename, 'filetype': 'audio', 'last_updated': now, 'instructor_name': instructor_name, 'course_id': course_id})
+        else:
+            return jsonify({'success': False, 'message': 'Invalid file type, only MP3, WAV, OGG allowed'}), 400
+            
+    except Exception as e:
+        print(f"Error in upload_audio: {str(e)}")
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
 @app.route('/api/videos', methods=['GET'])
 def list_videos():
     videos_raw = r.hgetall('videos')
@@ -495,6 +546,39 @@ def list_ppt_files():
             if current_role != 'instructor' and not course_id:
                 ppt_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
     return jsonify(ppt_list)
+
+@app.route('/api/audio_files', methods=['GET']) # New endpoint to list Audio files
+def list_audio_files():
+    audio_raw = r.hgetall('audio_files')
+    audio_list = []
+    current_role = session.get('role')
+    current_instructor_name = session.get('name')
+    course_id = request.args.get('courseId')  # Get course_id from query parameters
+
+    for k, v_json in audio_raw.items():
+        try:
+            v_data = json.loads(v_json)
+            
+            # Filter by course_id if provided
+            if course_id and v_data.get('course_id') != course_id:
+                continue
+                
+            audio_item = {
+                'filename': k,
+                'filetype': v_data.get('filetype'),
+                'last_updated': v_data.get('last_updated'),
+                'instructor_name': v_data.get('instructor_name'),
+                'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
+            }
+            if current_role == 'instructor':
+                if v_data.get('instructor_name') == current_instructor_name:
+                    audio_list.append(audio_item)
+            else: # For students or other roles, show all audio files
+                audio_list.append(audio_item)
+        except json.JSONDecodeError:
+            if current_role != 'instructor' and not course_id:
+                audio_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
+    return jsonify(audio_list)
 
 @app.route('/api/video/<filename>', methods=['DELETE'])
 def delete_video_file(filename):
@@ -688,6 +772,50 @@ def delete_ppt_file(filename):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/api/audio/<filename>', methods=['DELETE']) # New endpoint to delete an Audio file
+def delete_audio_file(filename):
+    if session.get('role') != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    current_instructor_name = session.get('name')
+    if not current_instructor_name:
+        return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
+
+    secure_name = secure_filename(filename)
+    if not secure_name:
+        return jsonify({'success': False, 'message': 'Invalid filename'}), 400
+
+    audio_json = r.hget('audio_files', secure_name)
+    if not audio_json:
+        filepath_check = os.path.join(app.config['AUDIO_UPLOAD_FOLDER'], secure_name)
+        if os.path.exists(filepath_check):
+             return jsonify({'success': False, 'message': f'{secure_name} not found in database. Cannot confirm ownership.'}), 404
+        return jsonify({'success': False, 'message': f'{secure_name} not found in database or filesystem.'}), 404
+    try:
+        audio_data = json.loads(audio_json)
+        owner_instructor = audio_data.get('instructor_name')
+
+        if owner_instructor != current_instructor_name:
+            return jsonify({'success': False, 'message': 'Unauthorized. You do not own this Audio file.'}), 403
+
+        filepath = os.path.join(app.config['AUDIO_UPLOAD_FOLDER'], secure_name)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        
+        result = r.hdel('audio_files', secure_name)
+        if result > 0:
+            return jsonify({'success': True, 'message': f'{secure_name} deleted successfully.'})
+        else:
+            # This case implies a race condition or unexpected Redis state.
+            fs_status_message = "File on filesystem might have been removed."
+            if os.path.exists(filepath): 
+                fs_status_message = "File on filesystem still exists."
+            return jsonify({'success': False, 'message': f'Error: {secure_name} not found in database for deletion. {fs_status_message}'}), 500
+    except json.JSONDecodeError:
+        return jsonify({'success': False, 'message': 'Error decoding Audio data from database.'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 @app.route('/api/get_session_info', methods=['GET'])
 def get_session_info():
     print(f"Session check - Session data: {dict(session)}")  # Debug
@@ -781,6 +909,18 @@ def ppt_progress(student, filename):
             return jsonify({'success': True})
         return jsonify({'success': False, 'message': 'Missing currentSlide or maxProgressPercent'}), 400
 
+@app.route('/api/progress_audio/<student>/<filename>', methods=['GET', 'POST']) # New endpoint for Audio progress
+def audio_progress(student, filename):
+    key = f'progress_audio:{student}:{secure_filename(filename)}'
+    if request.method == 'GET':
+        progress = r.get(key) or 0
+        return jsonify({'progress': float(progress)})
+    else: # POST
+        data = request.json
+        progress = data.get('progress', 0)
+        r.set(key, progress)
+        return jsonify({'success': True})
+
 @app.route('/uploads/<filename>')
 def serve_video(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -801,10 +941,11 @@ def serve_docx(filename):
 
 @app.route('/uploads_ppt/<filename>') # New route to serve PPT files
 def serve_ppt(filename):
-    # The filename from the URL is already URL-decoded by Flask.
-    # It should correspond to the filename stored on the disk (which was secured during upload).
-    # No need to call secure_filename() again here.
     return send_from_directory(app.config['PPT_UPLOAD_FOLDER'], filename)
+
+@app.route('/uploads_audio/<filename>') # New route to serve Audio files
+def serve_audio(filename):
+    return send_from_directory(app.config['AUDIO_UPLOAD_FOLDER'], filename)
 
 @app.route('/')
 def root():

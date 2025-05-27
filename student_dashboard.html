@@ -54,6 +54,14 @@
             </thead>
             <tbody></tbody>
         </table>
+
+        <h2>Available Audio Files</h2> <!-- New section for Audio files -->
+        <table border="1" id="audioTable">
+            <thead>
+                <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Uploaded By</th><th>Action</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 
     <script>
@@ -104,6 +112,7 @@
                     loadPdfs();
                     loadDocxFiles();
                     loadPptFiles();
+                    loadAudioFiles(); // Load audio files
                 } else {
                     // Redirect if not authenticated
                     window.location.href = 'login.html';
@@ -276,12 +285,46 @@
         }
     }
 
+    async function loadAudioFiles() {
+        if (!studentName) return;
+        if (!selectedCourseId) return;
+
+        const courseParam = `?courseId=${selectedCourseId}`;
+        const res = await fetch(`/api/audio_files${courseParam}`, {credentials: 'include'});
+        const audioFiles = await res.json();
+        const tbody = document.querySelector('#audioTable tbody');
+        tbody.innerHTML = '';
+        
+        if (audioFiles.length === 0) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td colspan="5" style="text-align: center;">No audio files available for this course</td>';
+            tbody.appendChild(tr);
+            return;
+        }
+        
+        for (const a of audioFiles) {
+            let progress = 0;
+            try {
+                const progRes = await fetch(`/api/progress_audio/${studentName}/${a.filename}`, {credentials: 'include'});
+                if(progRes.ok){
+                    const progData = await progRes.json();
+                    progress = progData.progress || 0;
+                }
+            } catch (e) { console.error("Error fetching audio progress:", e); }
+            const tr = document.createElement('tr');
+            const instructorName = a.instructor_name || 'Unknown';
+            tr.innerHTML = `<td>${a.filename}</td><td>${a.filetype}</td><td>${progress.toFixed(1)}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='audio_tracker.html?audio=${encodeURIComponent(a.filename)}'">Listen</button></td>`;
+            tbody.appendChild(tr);
+        }
+    }
+
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             loadVideos();
             loadPdfs();
             loadDocxFiles();
             loadPptFiles();
+            loadAudioFiles(); // Load audio files
         }
     });
     
