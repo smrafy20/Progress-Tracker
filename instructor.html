@@ -40,7 +40,14 @@
         </form>        <h2>Uploaded Files</h2>
         <table border="1" id="filesTable">
             <thead>
-                <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Course Name</th><th>Actions</th></tr>
+                <tr>
+                    <th>File Name</th>
+                    <th>File Type</th>
+                    <th>Last Updated</th>
+                    <th>Course Name</th>
+                    <th>Instructor Name</th>
+                    <th>Actions</th>
+                </tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -162,7 +169,15 @@
                 const tr = document.createElement('tr');
                 const lastUpdated = file.last_updated ? new Date(file.last_updated).toLocaleString() : 'N/A';
                 const instructorName = file.instructor_name || 'Unknown';
-                tr.innerHTML = `<td>${file.filename}</td><td>${file.filetype}</td><td>${lastUpdated}</td><td>${instructorName}</td><td><button class="btn reset" onclick="deleteFile('${file.filename}', '${file.filetype}')">Delete</button></td>`;
+                const courseName = courses.find(c => c.id === file.course_id)?.name || 'Unknown Course';
+                tr.innerHTML = `
+                    <td>${file.filename}</td>
+                    <td>${file.filetype}</td>
+                    <td>${lastUpdated}</td>
+                    <td>${courseName}</td>
+                    <td>${instructorName}</td>
+                    <td><button class="btn reset" onclick="deleteFile('${file.filename}', '${file.filetype}')">Delete</button></td>
+                `;
                 tbody.appendChild(tr);
             });
         } catch (error) {
