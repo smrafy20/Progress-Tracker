@@ -36,8 +36,60 @@ app.config['PDF_UPLOAD_FOLDER'] = PDF_UPLOAD_FOLDER # Add to app config
 app.config['DOCX_UPLOAD_FOLDER'] = DOCX_UPLOAD_FOLDER # Add to app config
 app.config['PPT_UPLOAD_FOLDER'] = PPT_UPLOAD_FOLDER # Add to app config
 
-# Connect to Redis
-r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+# Connect to Redis with error handling
+try:
+    r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+    # Test connection
+    r.ping()
+    print("Redis connection successful")
+    
+    # Initialize course key in Redis if it doesn't exist
+    if not r.exists('courses'):
+        r.set('courses', json.dumps([]))
+        print("Initialized empty courses array in Redis")
+except redis.ConnectionError:
+    print("ERROR: Cannot connect to Redis. Make sure Redis server is running.")
+    # Use in-memory fallback for development/testing
+    class FallbackRedis:
+        def __init__(self):
+            self.data = {'courses': json.dumps([])}
+        
+        def get(self, key):
+            return self.data.get(key)
+        
+        def set(self, key, value):
+            self.data[key] = value
+            return True
+            
+        def exists(self, key):
+            return key in self.data
+            
+        def hset(self, hash_name, key, value):
+            if hash_name not in self.data:
+                self.data[hash_name] = {}
+            if not isinstance(self.data[hash_name], dict):
+                self.data[hash_name] = {}
+            self.data[hash_name][key] = value
+            return True
+            
+        def hget(self, hash_name, key):
+            if hash_name not in self.data or not isinstance(self.data[hash_name], dict):
+                return None
+            return self.data[hash_name].get(key)
+            
+        def hgetall(self, hash_name):
+            if hash_name not in self.data or not isinstance(self.data[hash_name], dict):
+                return {}
+            return self.data[hash_name]
+            
+        def hdel(self, hash_name, key):
+            if hash_name in self.data and isinstance(self.data[hash_name], dict) and key in self.data[hash_name]:
+                del self.data[hash_name][key]
+                return 1
+            return 0
+    
+    print("Using in-memory fallback for Redis")
+    r = FallbackRedis()
 
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -77,6 +129,26 @@ def logout():
     session.pop('role', None)
     return jsonify({'success': True, 'message': 'Logged out successfully'})
 
+@app.route('/api/check_auth', methods=['GET'])
+def check_auth():
+    """Check if user is authenticated and return session details"""
+    name = session.get('name')
+    role = session.get('role')
+    
+    print(f"Check auth - Session data: {dict(session)}")
+    
+    if name and role:
+        return jsonify({
+            'success': True,
+            'name': name,
+            'role': role
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': 'Not authenticated'
+        }), 401
+
 @app.route('/api/upload', methods=['POST'])
 def upload_video():
     print(f"Video upload - Session data: {dict(session)}")  # Debug: print session data
@@ -91,6 +163,11 @@ def upload_video():
         print("Video upload - Instructor name not found in session")  # Debug
         return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
 
+    # Get the course ID from the request
+    course_id = request.form.get('courseId')
+    if not course_id:
+        return jsonify({'success': False, 'message': 'Course ID is required'}), 400
+
     if 'file' not in request.files:
         return jsonify({'success': False, 'message': 'No file part'}), 400
     file = request.files['file']
@@ -100,15 +177,16 @@ def upload_video():
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
-        # Save video metadata in Redis including timestamp and instructor name
+        # Save video metadata in Redis including timestamp, instructor name, and course ID
         now = datetime.datetime.now().isoformat()
         video_data = {
             'filetype': 'video',
             'last_updated': now,
-            'instructor_name': instructor_name
+            'instructor_name': instructor_name,
+            'course_id': course_id
         }
         r.hset('videos', filename, json.dumps(video_data))
-        return jsonify({'success': True, 'filename': filename, 'filetype': 'video', 'last_updated': now, 'instructor_name': instructor_name})
+        return jsonify({'success': True, 'filename': filename, 'filetype': 'video', 'last_updated': now, 'instructor_name': instructor_name, 'course_id': course_id})
     return jsonify({'success': False, 'message': 'Invalid file type'}), 400
 
 @app.route('/api/upload_pdf', methods=['POST']) # New endpoint for PDF uploads
@@ -125,6 +203,11 @@ def upload_pdf():
         if not instructor_name:
             print("Instructor name not found in session")  # Debug
             return jsonify({'success': False, 'message': 'Instructor name not found in session. Please login again.'}), 401
+
+        # Get the course ID from the request
+        course_id = request.form.get('courseId')
+        if not course_id:
+            return jsonify({'success': False, 'message': 'Course ID is required'}), 400
 
         if 'file' not in request.files:
             return jsonify({'success': False, 'message': 'No file part'}), 400
@@ -148,12 +231,13 @@ def upload_pdf():
             pdf_data = {
                 'filetype': 'pdf',
                 'last_updated': now,
-                'instructor_name': instructor_name
+                'instructor_name': instructor_name,
+                'course_id': course_id
             }
             r.hset('pdfs', filename, json.dumps(pdf_data)) # Store in a new 'pdfs' hash
             print(f"PDF data saved to Redis for {filename}")  # Debug
             
-            return jsonify({'success': True, 'filename': filename, 'filetype': 'pdf', 'last_updated': now, 'instructor_name': instructor_name})
+            return jsonify({'success': True, 'filename': filename, 'filetype': 'pdf', 'last_updated': now, 'instructor_name': instructor_name, 'course_id': course_id})
         else:
             print(f"File type not allowed for: {file.filename}")  # Debug
             return jsonify({'success': False, 'message': 'Invalid file type, only PDF allowed'}), 400            
@@ -175,6 +259,11 @@ def upload_docx():
         if not instructor_name:
             print("DOCX upload - Instructor name not found in session")  # Debug
             return jsonify({'success': False, 'message': 'Instructor name not found in session. Please login again.'}), 401
+
+        # Get the course ID from the request
+        course_id = request.form.get('courseId')
+        if not course_id:
+            return jsonify({'success': False, 'message': 'Course ID is required'}), 400
 
         if 'file' not in request.files:
             return jsonify({'success': False, 'message': 'No file part'}), 400
@@ -198,11 +287,12 @@ def upload_docx():
             docx_data = {
                 'filetype': 'docx',
                 'last_updated': now,
-                'instructor_name': instructor_name
+                'instructor_name': instructor_name,
+                'course_id': course_id
             }
             r.hset('docx_files', filename, json.dumps(docx_data)) # Store in a new 'docx_files' hash
             print(f"DOCX data saved to Redis for {filename}")  # Debug
-            return jsonify({'success': True, 'filename': filename, 'filetype': 'docx', 'last_updated': now, 'instructor_name': instructor_name})
+            return jsonify({'success': True, 'filename': filename, 'filetype': 'docx', 'last_updated': now, 'instructor_name': instructor_name, 'course_id': course_id})
         else:
             print(f"File type not allowed for: {file.filename}")  # Debug
             return jsonify({'success': False, 'message': 'Invalid file type, only DOCX allowed'}), 400
@@ -225,6 +315,11 @@ def upload_ppt():
         if not instructor_name:
             print("PPT upload - Instructor name not found in session")  # Debug
             return jsonify({'success': False, 'message': 'Instructor name not found in session. Please login again.'}), 401
+
+        # Get the course ID from the request
+        course_id = request.form.get('courseId')
+        if not course_id:
+            return jsonify({'success': False, 'message': 'Course ID is required'}), 400
 
         if 'file' not in request.files:
             return jsonify({'success': False, 'message': 'No file part'}), 400
@@ -249,12 +344,13 @@ def upload_ppt():
             ppt_data = {
                 'filetype': 'ppt',
                 'last_updated': now,
-                'instructor_name': instructor_name
+                'instructor_name': instructor_name,
+                'course_id': course_id
             }
             r.hset('ppt_files', filename, json.dumps(ppt_data)) # Store in a new 'ppt_files' hash
             print(f"PPT data saved to Redis for {filename}")  # Debug
             
-            return jsonify({'success': True, 'filename': filename, 'filetype': 'ppt', 'last_updated': now, 'instructor_name': instructor_name})
+            return jsonify({'success': True, 'filename': filename, 'filetype': 'ppt', 'last_updated': now, 'instructor_name': instructor_name, 'course_id': course_id})
         else:
             print(f"File type not allowed for: {file.filename}")  # Debug
             return jsonify({'success': False, 'message': 'Invalid file type, only PPT/PPTX allowed'}), 400
@@ -270,15 +366,22 @@ def list_videos():
     
     current_role = session.get('role')
     current_instructor_name = session.get('name')
+    course_id = request.args.get('courseId')  # Get course_id from query parameters
 
     for k, v_json in videos_raw.items():
         try:
             v_data = json.loads(v_json)  # Parse JSON string
+            
+            # Filter by course_id if provided
+            if course_id and v_data.get('course_id') != course_id:
+                continue
+                
             video_item = {
                 'filename': k,
-                'filetype': v_data.get('filetype'),
+                'filetype': v_data.get('filetype', 'video'),
                 'last_updated': v_data.get('last_updated'),
-                'instructor_name': v_data.get('instructor_name') # Include instructor name
+                'instructor_name': v_data.get('instructor_name'), # Include instructor name
+                'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
             
             if current_role == 'instructor':
@@ -290,8 +393,8 @@ def list_videos():
         except json.JSONDecodeError:
             # Handle cases where data might not be a valid JSON (e.g., old data)
             # These videos won't have an instructor_name and won't show for specific instructors unless logic is added
-            if current_role != 'instructor': # Only show to non-instructors if malformed
-                videos_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
+            if current_role != 'instructor' and not course_id: # Only show to non-instructors if malformed and not filtering by course
+                videos_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
     return jsonify(videos_list)
 
 @app.route('/api/pdfs', methods=['GET']) # New endpoint to list PDFs
@@ -300,15 +403,22 @@ def list_pdfs():
     pdfs_list = []
     current_role = session.get('role')
     current_instructor_name = session.get('name')
+    course_id = request.args.get('courseId')  # Get course_id from query parameters
 
     for k, v_json in pdfs_raw.items():
         try:
             v_data = json.loads(v_json)
+            
+            # Filter by course_id if provided
+            if course_id and v_data.get('course_id') != course_id:
+                continue
+                
             pdf_item = {
                 'filename': k,
                 'filetype': v_data.get('filetype'),
                 'last_updated': v_data.get('last_updated'),
-                'instructor_name': v_data.get('instructor_name')
+                'instructor_name': v_data.get('instructor_name'),
+                'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
             if current_role == 'instructor':
                 if v_data.get('instructor_name') == current_instructor_name:
@@ -316,7 +426,8 @@ def list_pdfs():
             else: # For students or other roles, show all pdfs
                 pdfs_list.append(pdf_item)
         except json.JSONDecodeError:
-            if current_role != 'instructor':                 pdfs_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
+            if current_role != 'instructor' and not course_id:
+                pdfs_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
     return jsonify(pdfs_list)
 
 @app.route('/api/docx_files', methods=['GET']) # New endpoint to list DOCX files
@@ -325,15 +436,22 @@ def list_docx_files():
     docx_list = []
     current_role = session.get('role')
     current_instructor_name = session.get('name')
+    course_id = request.args.get('courseId')  # Get course_id from query parameters
 
     for k, v_json in docx_raw.items():
         try:
             v_data = json.loads(v_json)
+            
+            # Filter by course_id if provided
+            if course_id and v_data.get('course_id') != course_id:
+                continue
+                
             docx_item = {
                 'filename': k,
                 'filetype': v_data.get('filetype'),
                 'last_updated': v_data.get('last_updated'),
-                'instructor_name': v_data.get('instructor_name')
+                'instructor_name': v_data.get('instructor_name'),
+                'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
             if current_role == 'instructor':
                 if v_data.get('instructor_name') == current_instructor_name:
@@ -341,7 +459,8 @@ def list_docx_files():
             else: # For students or other roles, show all docx files
                 docx_list.append(docx_item)
         except json.JSONDecodeError:
-            if current_role != 'instructor':                 docx_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
+            if current_role != 'instructor' and not course_id:
+                docx_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
     return jsonify(docx_list)
 
 @app.route('/api/ppt_files', methods=['GET']) # New endpoint to list PPT files
@@ -350,15 +469,22 @@ def list_ppt_files():
     ppt_list = []
     current_role = session.get('role')
     current_instructor_name = session.get('name')
+    course_id = request.args.get('courseId')  # Get course_id from query parameters
 
     for k, v_json in ppt_raw.items():
         try:
             v_data = json.loads(v_json)
+            
+            # Filter by course_id if provided
+            if course_id and v_data.get('course_id') != course_id:
+                continue
+                
             ppt_item = {
                 'filename': k,
                 'filetype': v_data.get('filetype'),
                 'last_updated': v_data.get('last_updated'),
-                'instructor_name': v_data.get('instructor_name')
+                'instructor_name': v_data.get('instructor_name'),
+                'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
             if current_role == 'instructor':
                 if v_data.get('instructor_name') == current_instructor_name:
@@ -366,8 +492,8 @@ def list_ppt_files():
             else: # For students or other roles, show all ppt files
                 ppt_list.append(ppt_item)
         except json.JSONDecodeError:
-            if current_role != 'instructor':
-                 ppt_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown'})
+            if current_role != 'instructor' and not course_id:
+                ppt_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
     return jsonify(ppt_list)
 
 @app.route('/api/video/<filename>', methods=['DELETE'])
@@ -570,13 +696,11 @@ def get_session_info():
     else:
         return jsonify({'success': False, 'message': 'No active session'}), 401
 
-@app.route('/api/check_auth', methods=['GET'])  # New endpoint to check authentication
-def check_auth():
-    print(f"Auth check - Session data: {dict(session)}")  # Debug
-    if session.get('role') == 'instructor':
-        return jsonify({'success': True, 'message': 'Authorized as instructor', 'name': session.get('name')})
-    else:
-        return jsonify({'success': False, 'message': 'Not authorized as instructor', 'current_role': session.get('role')}), 403
+# This route is already defined above, removing duplicate
+# @app.route('/api/check_auth', methods=['GET'])
+# def check_auth():
+#     """Check if user is authenticated and return session details"""
+#     # Duplicate route removed to avoid conflicts
 
 @app.route('/api/progress/<student>/<filename>', methods=['GET', 'POST'])
 def progress(student, filename):
@@ -805,6 +929,98 @@ def get_ppt_slide(filename, slide_number):
     except Exception as e:
         print(f"Error getting slide {slide_number} from {filename}: {str(e)}")
         return jsonify({'success': False, 'message': f'Error processing slide: {str(e)}'}), 500
+
+@app.route('/api/courses', methods=['GET'])
+def list_courses():
+    """Retrieves all available courses"""
+    courses_json = r.get('courses')
+    if courses_json:
+        courses = json.loads(courses_json)
+    else:
+        courses = []
+        r.set('courses', json.dumps(courses))
+    return jsonify(courses)
+
+@app.route('/api/courses', methods=['POST'])
+def create_course():
+    """Creates a new course"""
+    print(f"Create course request received - Session data: {dict(session)}")
+    print(f"Request data: {request.json}")
+    
+    if session.get('role') != 'instructor':
+        print(f"Create course authorization failed. Role in session: {session.get('role')}")
+        return jsonify({'success': False, 'message': 'Unauthorized - Only instructors can create courses'}), 403
+    
+    instructor_name = session.get('name')
+    if not instructor_name:
+        print("Create course - Instructor name not found in session")
+        return jsonify({'success': False, 'message': 'Instructor name not found in session'}), 401
+    
+    try:
+        data = request.json
+        if not data:
+            print("Create course - No JSON data in request")
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+            
+        course_name = data.get('courseName')
+        
+        if not course_name:
+            print("Create course - No course name provided")
+            return jsonify({'success': False, 'message': 'Course name is required'}), 400
+        
+        print(f"Creating course: {course_name} by instructor: {instructor_name}")
+        
+        # Get existing courses
+        courses_json = r.get('courses')
+        if courses_json:
+            try:
+                courses = json.loads(courses_json)
+                print(f"Found existing courses: {len(courses)}")
+            except json.JSONDecodeError:
+                print("Error decoding courses JSON, resetting to empty array")
+                courses = []
+                r.set('courses', json.dumps([]))
+        else:
+            print("No courses found, initializing empty array")
+            courses = []
+            r.set('courses', json.dumps([]))
+        
+        # Check for duplicate course name
+        for course in courses:
+            if course.get('name') == course_name:
+                print(f"Duplicate course name: {course_name}")
+                return jsonify({'success': False, 'message': 'Course with this name already exists'}), 400
+        
+        # Create new course
+        new_course = {
+            'id': str(len(courses) + 1),  # Simple ID generation
+            'name': course_name,
+            'instructor': instructor_name,
+            'created_at': datetime.datetime.now().isoformat()
+        }
+        
+        courses.append(new_course)
+        r.set('courses', json.dumps(courses))
+        print(f"Course created successfully: {new_course}")
+        
+        return jsonify({'success': True, 'course': new_course})
+    except Exception as e:
+        print(f"Error creating course: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error creating course: {str(e)}'}), 500
+
+@app.route('/api/courses/<course_id>', methods=['GET'])
+def get_course(course_id):
+    """Retrieve a specific course by ID"""
+    courses_json = r.get('courses')
+    if not courses_json:
+        return jsonify({'success': False, 'message': 'Course not found'}), 404
+    
+    courses = json.loads(courses_json)
+    for course in courses:
+        if course.get('id') == course_id:
+            return jsonify({'success': True, 'course': course})
+    
+    return jsonify({'success': False, 'message': 'Course not found'}), 404
 
 if __name__ == '__main__':
     app.run(debug=True)

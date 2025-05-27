@@ -31,8 +31,7 @@
         </form>
     </div>
 
-    <script>
-    document.getElementById('loginForm').onsubmit = async function(e) {
+    <script>    document.getElementById('loginForm').onsubmit = async function(e) {
         e.preventDefault();
         const name = document.getElementById('name').value;
         const role = document.querySelector('input[name="role"]:checked').value;
@@ -45,7 +44,7 @@
         const data = await res.json();
         if (data.success) {
             if (role === 'instructor') window.location.href = 'instructor.html';
-            else window.location.href = 'student.html';
+            else window.location.href = 'course_selection.html';  // Send students to course selection first
         } else {
             alert('Login failed: ' + data.message);
         }

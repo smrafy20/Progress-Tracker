@@ -18,21 +18,36 @@
         <div class="dashboard-header">
             <h1>Instructor Dashboard</h1>
             <p class="welcome-message">Manage your training materials</p>
-        </div>        <form id="uploadForm" enctype="multipart/form-data">
+        </div>
+        
+        <div class="action-buttons">
+            <button onclick="createCourse()" class="btn">Create New Course</button>
+        </div>
+        
+        <div class="course-selection">
+            <label for="courseSelect">Select Course:</label>
+            <select id="courseSelect" onchange="changeCourse()">
+                <option value="">All Courses</option>
+                <!-- Course options will be added dynamically -->
+            </select>
+        </div>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
             <label for="fileInput">Upload new file (Video, PDF, DOCX, or PPT):</label>
             <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx">
+            <input type="hidden" id="courseIdInput" name="courseId" value="">
             <button type="submit" class="btn">Upload File</button>
-        </form>
-        <h2>Uploaded Files</h2>
+        </form>        <h2>Uploaded Files</h2>
         <table border="1" id="filesTable">
             <thead>
-                <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Uploaded By</th><th>Actions</th></tr>
+                <tr><th>File Name</th><th>File Type</th><th>Last Updated</th><th>Course Name</th><th>Actions</th></tr>
             </thead>
             <tbody></tbody>
         </table>
-    </div>
-
-    <script>
+    </div>    <script>
+    let currentCourseId = '';
+    let courses = [];
+    
     // Load instructor name on page load
     async function loadInstructorInfo() {
         try {
@@ -40,6 +55,7 @@
             const data = await res.json();
             if (data.success && data.name) {
                 document.getElementById('instructorName').textContent = data.name;
+                loadCourses(); // Load courses after confirming instructor is logged in
             } else {
                 // Redirect to login if session is invalid
                 window.location.href = 'login.html';
@@ -47,6 +63,56 @@
         } catch (error) {
             console.error('Error loading instructor info:', error);
             window.location.href = 'login.html';
+        }
+    }
+    
+    // Load courses created by the instructor
+    async function loadCourses() {
+        try {
+            const res = await fetch('/api/courses', {credentials: 'include'});
+            courses = await res.json();
+            
+            const courseSelect = document.getElementById('courseSelect');
+            // Keep the "All Courses" option and add new courses
+            courseSelect.innerHTML = '<option value="">All Courses</option>';
+            
+            courses.forEach(course => {
+                const option = document.createElement('option');
+                option.value = course.id;
+                option.textContent = course.name;
+                courseSelect.appendChild(option);
+            });
+            
+            // Restore selected course from session storage if available
+            const savedCourseId = sessionStorage.getItem('instructorSelectedCourseId');
+            if (savedCourseId) {
+                courseSelect.value = savedCourseId;
+                currentCourseId = savedCourseId;
+                document.getElementById('courseIdInput').value = currentCourseId;
+            }
+            
+            loadFiles(); // Load files for the selected course
+        } catch (error) {
+            console.error('Error loading courses:', error);
+        }
+    }
+    
+    // Handle course selection change
+    function changeCourse() {
+        const courseSelect = document.getElementById('courseSelect');
+        currentCourseId = courseSelect.value;
+        document.getElementById('courseIdInput').value = currentCourseId;
+        // Save selected course ID to session storage
+        sessionStorage.setItem('instructorSelectedCourseId', currentCourseId);
+        loadFiles(); // Reload files for the selected course
+    }
+      // Redirect to course creation page
+    async function createCourse() {
+        try {
+            window.location.href = 'create_course.html';
+        } catch (error) {
+            console.error('Error navigating to create course page:', error);
+            alert('Error navigating to create course page. Please try again.');
         }
     }
 
@@ -60,34 +126,49 @@
             window.location.href = 'login.html';
         } else {
             alert('Logout failed. Please try again.');
+        }    }
+      async function loadFiles() {
+        try {
+            // Create array to store all files
+            const allFiles = [];
+            
+            // Get the course filter (if any)
+            const courseParam = currentCourseId ? `?courseId=${currentCourseId}` : '';
+            
+            // Fetch videos
+            const videoRes = await fetch(`/api/videos${courseParam}`, {credentials: 'include'});
+            const videos = await videoRes.json();
+            allFiles.push(...videos.map(v => ({...v, deleteEndpoint: `/api/video/${v.filename}`})));
+            
+            // Fetch PDFs
+            const pdfRes = await fetch(`/api/pdfs${courseParam}`, {credentials: 'include'});
+            const pdfs = await pdfRes.json();
+            allFiles.push(...pdfs.map(p => ({...p, deleteEndpoint: `/api/pdf/${p.filename}`})));
+            
+            // Fetch DOCX files
+            const docxRes = await fetch(`/api/docx_files${courseParam}`, {credentials: 'include'});
+            const docxFiles = await docxRes.json();
+            allFiles.push(...docxFiles.map(d => ({...d, deleteEndpoint: `/api/docx/${d.filename}`})));
+            
+            // Fetch PPT files
+            const pptRes = await fetch(`/api/ppt_files${courseParam}`, {credentials: 'include'});
+            const pptFiles = await pptRes.json();
+            allFiles.push(...pptFiles.map(p => ({...p, deleteEndpoint: `/api/ppt/${p.filename}`})));
+            
+            const tbody = document.querySelector('#filesTable tbody');
+            tbody.innerHTML = '';
+            
+            allFiles.forEach(file => {
+                const tr = document.createElement('tr');
+                const lastUpdated = file.last_updated ? new Date(file.last_updated).toLocaleString() : 'N/A';
+                const instructorName = file.instructor_name || 'Unknown';
+                tr.innerHTML = `<td>${file.filename}</td><td>${file.filetype}</td><td>${lastUpdated}</td><td>${instructorName}</td><td><button class="btn reset" onclick="deleteFile('${file.filename}', '${file.filetype}')">Delete</button></td>`;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            console.error('Error loading files:', error);
+            alert('An error occurred while loading files.');
         }
-    }    async function loadFiles() {
-        // Load videos, PDFs, DOCX files, and PPT files and combine them
-        const [videosRes, pdfsRes, docxRes, pptsRes] = await Promise.all([
-            fetch('/api/videos', {credentials: 'include'}),
-            fetch('/api/pdfs', {credentials: 'include'}),
-            fetch('/api/docx_files', {credentials: 'include'}),
-            fetch('/api/ppt_files', {credentials: 'include'})
-        ]);
-        
-        const videos = await videosRes.json();
-        const pdfs = await pdfsRes.json();
-        const docxFiles = await docxRes.json();
-        const pptFiles = await pptsRes.json();
-        
-        // Combine all arrays
-        const allFiles = [...videos, ...pdfs, ...docxFiles, ...pptFiles];
-        
-        const tbody = document.querySelector('#filesTable tbody');
-        tbody.innerHTML = '';
-        
-        allFiles.forEach(file => {
-            const tr = document.createElement('tr');
-            const lastUpdated = file.last_updated ? new Date(file.last_updated).toLocaleString() : 'N/A';
-            const instructorName = file.instructor_name || 'Unknown';
-            tr.innerHTML = `<td>${file.filename}</td><td>${file.filetype}</td><td>${lastUpdated}</td><td>${instructorName}</td><td><button class="btn reset" onclick="deleteFile('${file.filename}', '${file.filetype}')">Delete</button></td>`;
-            tbody.appendChild(tr);
-        });
     }
 
     async function deleteFile(filename, filetype) {
@@ -144,9 +225,19 @@
                         isDOCX ? '/api/upload_docx' :
                         isPPT ? '/api/upload_ppt' :
                         '/api/upload';
-        
-        const formData = new FormData();
+          const formData = new FormData();
         formData.append('file', file);
+        
+        // Add course ID to form data if selected
+        const courseIdInput = document.getElementById('courseIdInput');
+        const selectedCourseId = courseIdInput.value;
+        
+        if (!selectedCourseId) {
+            alert('Please select a course before uploading a file.');
+            return;
+        }
+        
+        formData.append('courseId', selectedCourseId);
         
         try {
             const res = await fetch(endpoint, {
