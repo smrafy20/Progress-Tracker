@@ -30,6 +30,19 @@
             
             <button type="submit" class="btn">Create Course</button>
         </form>
+
+        <h2>Your Courses</h2>
+        <table border="1" id="coursesTable">
+            <thead>
+                <tr>
+                    <th>Course Name</th>
+                    <th>Created By</th>
+                    <th>Last Update</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
     
     <script>
@@ -44,6 +57,8 @@
                 window.location.href = 'login.html';
             } else {
                 document.getElementById('instructorName').textContent = data.name;
+                // Load courses after successful authentication
+                loadCourses();
             }
         } catch (error) {
             console.error('Error checking auth:', error);
@@ -51,7 +66,61 @@
             window.location.href = 'login.html';
         }
     }
-      // Handle form submission
+
+    // Load courses created by the instructor
+    async function loadCourses() {
+        try {
+            const res = await fetch('/api/courses', {credentials: 'include'});
+            const courses = await res.json();
+            
+            const tbody = document.querySelector('#coursesTable tbody');
+            tbody.innerHTML = '';
+            
+            courses.forEach(course => {
+                const tr = document.createElement('tr');
+                const createdAt = course.created_at ? new Date(course.created_at).toLocaleString() : 'N/A';
+                tr.innerHTML = `
+                    <td>${course.name}</td>
+                    <td>${course.instructor || 'Unknown'}</td>
+                    <td>${createdAt}</td>
+                    <td>
+                        <button class="btn reset" onclick="deleteCourse('${course.id}', '${course.name}')">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            console.error('Error loading courses:', error);
+            alert('An error occurred while loading courses.');
+        }
+    }
+
+    // Delete a course
+    async function deleteCourse(courseId, courseName) {
+        if (!confirm(`Are you sure you want to delete the course "${courseName}"? This will also delete all associated files.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/courses/${courseId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                alert('Course deleted successfully!');
+                loadCourses(); // Refresh the list
+            } else {
+                alert('Error deleting course: ' + (data.message || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error deleting course:', error);
+            alert('An error occurred while deleting the course.');
+        }
+    }
+
+    // Handle form submission
     document.getElementById('createCourseForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -69,8 +138,6 @@
         submitButton.innerText = 'Creating...';
         
         try {
-            console.log('Submitting course creation request:', { courseName });
-            
             const res = await fetch('/api/courses', {
                 method: 'POST',
                 headers: {
@@ -80,25 +147,16 @@
                 body: JSON.stringify({ courseName })
             });
             
-            console.log('Response status:', res.status);
+            const data = await res.json();
             
-            try {
-                const data = await res.json();
-                console.log('Response data:', data);
-                
-                if (data.success) {
-                    alert('Course created successfully!');
-                    // Redirect to instructor dashboard
-                    window.location.href = 'instructor.html';
-                } else {
-                    alert('Error creating course: ' + (data.message || 'Unknown error'));
-                    // Re-enable form
-                    submitButton.disabled = false;
-                    submitButton.innerText = originalText;
-                }
-            } catch (jsonError) {
-                console.error('Error parsing JSON response:', jsonError);
-                alert('Error processing server response. Please try again.');
+            if (data.success) {
+                alert('Course created successfully!');
+                document.getElementById('courseName').value = ''; // Clear the input
+                loadCourses(); // Refresh the courses list
+                submitButton.disabled = false;
+                submitButton.innerText = originalText;
+            } else {
+                alert('Error creating course: ' + (data.message || 'Unknown error'));
                 submitButton.disabled = false;
                 submitButton.innerText = originalText;
             }

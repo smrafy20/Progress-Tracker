@@ -1022,5 +1022,44 @@ def get_course(course_id):
     
     return jsonify({'success': False, 'message': 'Course not found'}), 404
 
+@app.route('/api/courses/<course_id>', methods=['DELETE'])
+def delete_course(course_id):
+    """Deletes a course"""
+    if session.get('role') != 'instructor':
+        return jsonify({'success': False, 'message': 'Unauthorized - Only instructors can delete courses'}), 403
+    
+    instructor_name = session.get('name')
+    if not instructor_name:
+        return jsonify({'success': False, 'message': 'Instructor name not found in session'}), 401
+    
+    try:
+        # Get existing courses
+        courses_json = r.get('courses')
+        if not courses_json:
+            return jsonify({'success': False, 'message': 'Course not found'}), 404
+        
+        courses = json.loads(courses_json)
+        
+        # Find the course
+        course_index = None
+        for i, course in enumerate(courses):
+            if course.get('id') == course_id and course.get('instructor') == instructor_name:
+                course_index = i
+                break
+        
+        if course_index is None:
+            return jsonify({'success': False, 'message': 'Course not found or you are not authorized to delete it'}), 404
+        
+        # Remove the course
+        deleted_course = courses.pop(course_index)
+        
+        # Save updated courses list
+        r.set('courses', json.dumps(courses))
+        
+        return jsonify({'success': True, 'message': 'Course deleted successfully'})
+    except Exception as e:
+        print(f"Error deleting course: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error deleting course: {str(e)}'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
