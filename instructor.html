@@ -33,10 +33,8 @@
                 <option value="">All Courses</option>
                 <!-- Course options will be added dynamically -->
             </select>
-        </div>
-
-            <label for="fileInput">Upload new file (Video, PDF, DOCX, PPT, or Audio):</label>
-            <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx,.mp3,.wav,.ogg">
+        </div>            <label for="fileInput">Upload new file (Video, PDF, DOCX, or Audio):</label>
+            <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.mp3,.wav,.ogg">
             <input type="hidden" id="courseIdInput" name="courseId" value="">
             <button type="submit" class="btn">Upload File</button>
         </form>        <h2>Uploaded Files</h2>
@@ -152,16 +150,10 @@
             const pdfRes = await fetch(`/api/pdfs${courseParam}`, {credentials: 'include'});
             const pdfs = await pdfRes.json();
             allFiles.push(...pdfs.map(p => ({...p, deleteEndpoint: `/api/pdf/${p.filename}`})));
-            
-            // Fetch DOCX files
+              // Fetch DOCX files
             const docxRes = await fetch(`/api/docx_files${courseParam}`, {credentials: 'include'});
             const docxFiles = await docxRes.json();
             allFiles.push(...docxFiles.map(d => ({...d, deleteEndpoint: `/api/docx/${d.filename}`})));
-            
-            // Fetch PPT files
-            const pptRes = await fetch(`/api/ppt_files${courseParam}`, {credentials: 'include'});
-            const pptFiles = await pptRes.json();
-            allFiles.push(...pptFiles.map(p => ({...p, deleteEndpoint: `/api/ppt/${p.filename}`})));
             
             // Fetch Audio files
             const audioRes = await fetch(`/api/audio_files${courseParam}`, {credentials: 'include'});
@@ -196,10 +188,8 @@
     async function deleteFile(filename, filetype) {
         if (!confirm(`Are you sure you want to delete ${filename}?`)) {
             return;
-        }        try {
-            const endpoint = filetype === 'pdf' ? `/api/pdf/${filename}` : 
+        }        try {            const endpoint = filetype === 'pdf' ? `/api/pdf/${filename}` : 
                            filetype === 'docx' ? `/api/docx/${filename}` : 
-                           filetype === 'ppt' ? `/api/ppt/${filename}` : 
                            filetype === 'audio' ? `/api/audio/${filename}` :
                            `/api/video/${filename}`;
             const res = await fetch(endpoint, {
@@ -240,14 +230,12 @@
             console.error('Error checking auth:', error);
             alert('Error checking authentication. Please try again.');
             return;
-        }          // Determine file type and endpoint
+        }        // Determine file type and endpoint
         const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
         const isDOCX = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx');
-        const isPPT = file.type === 'application/vnd.ms-powerpoint' || file.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation' || file.name.toLowerCase().endsWith('.ppt') || file.name.toLowerCase().endsWith('.pptx');
         const isAudio = file.type.startsWith('audio/') || file.name.toLowerCase().endsWith('.mp3') || file.name.toLowerCase().endsWith('.wav') || file.name.toLowerCase().endsWith('.ogg');
         const endpoint = isPDF ? '/api/upload_pdf' : 
                         isDOCX ? '/api/upload_docx' :
-                        isPPT ? '/api/upload_ppt' :
                         isAudio ? '/api/upload_audio' :
                         '/api/upload';
           const formData = new FormData();
@@ -271,7 +259,7 @@
                 credentials: 'include'
             });
             const data = await res.json();            if (data.success) {
-                const fileType = isPDF ? 'PDF' : isDOCX ? 'DOCX' : isPPT ? 'PPT' : isAudio ? 'Audio' : 'Video';
+                const fileType = isPDF ? 'PDF' : isDOCX ? 'DOCX' : isAudio ? 'Audio' : 'Video';
                 alert(`${fileType} upload successful!`);
                 loadFiles(); // Refresh the combined list
                 fileInput.value = ''; // Clear the file input

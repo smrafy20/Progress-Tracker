@@ -6,13 +6,7 @@ import redis
 import datetime  # Added for timestamp
 import json
 
-# Import for PowerPoint processing
-try:
-    from pptx import Presentation
-    PPTX_AVAILABLE = True
-except ImportError:
-    PPTX_AVAILABLE = False
-    print("Warning: python-pptx not available. PPT content extraction will be limited.")
+# PowerPoint processing removed
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # For session management
@@ -26,17 +20,14 @@ app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HT
 UPLOAD_FOLDER = 'uploads'
 PDF_UPLOAD_FOLDER = 'uploads_pdf' # New folder for PDFs
 DOCX_UPLOAD_FOLDER = 'uploads_docx' # New folder for DOCX files
-PPT_UPLOAD_FOLDER = 'uploads_ppt' # New folder for PPT files
 AUDIO_UPLOAD_FOLDER = 'uploads_audio' # New folder for Audio files
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv'}
 ALLOWED_PDF_EXTENSIONS = {'pdf'} # Allowed extensions for PDFs
 ALLOWED_DOCX_EXTENSIONS = {'docx'} # Allowed extensions for DOCX files
-ALLOWED_PPT_EXTENSIONS = {'ppt', 'pptx'} # Allowed extensions for PPT files
 ALLOWED_AUDIO_EXTENSIONS = {'mp3', 'wav', 'ogg'} # Allowed extensions for Audio files
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['PDF_UPLOAD_FOLDER'] = PDF_UPLOAD_FOLDER # Add to app config
 app.config['DOCX_UPLOAD_FOLDER'] = DOCX_UPLOAD_FOLDER # Add to app config
-app.config['PPT_UPLOAD_FOLDER'] = PPT_UPLOAD_FOLDER # Add to app config
 app.config['AUDIO_UPLOAD_FOLDER'] = AUDIO_UPLOAD_FOLDER # Add to app config
 
 # Connect to Redis with error handling
@@ -100,8 +91,6 @@ if not os.path.exists(PDF_UPLOAD_FOLDER): # Create PDF upload folder
     os.makedirs(PDF_UPLOAD_FOLDER)
 if not os.path.exists(DOCX_UPLOAD_FOLDER): # Create DOCX upload folder
     os.makedirs(DOCX_UPLOAD_FOLDER)
-if not os.path.exists(PPT_UPLOAD_FOLDER): # Create PPT upload folder
-    os.makedirs(PPT_UPLOAD_FOLDER)
 if not os.path.exists(AUDIO_UPLOAD_FOLDER): # Create AUDIO upload folder
     os.makedirs(AUDIO_UPLOAD_FOLDER)
 
@@ -114,8 +103,7 @@ def allowed_pdf_file(filename): # New function for PDF files
 def allowed_docx_file(filename): # New function for DOCX files
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_DOCX_EXTENSIONS
 
-def allowed_ppt_file(filename): # New function for PPT files
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_PPT_EXTENSIONS
+# PPT handling function removed
 
 def allowed_audio_file(filename): # New function for Audio files
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_AUDIO_EXTENSIONS
@@ -309,63 +297,7 @@ def upload_docx():
         print(f"Error in upload_docx: {str(e)}")  # Debug
         return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 
-@app.route('/api/upload_ppt', methods=['POST']) # New endpoint for PPT uploads
-def upload_ppt():
-    try:
-        print(f"PPT upload - Session data: {dict(session)}")  # Debug: print session data
-        print(f"PPT upload - Session role: {session.get('role')}")  # Debug: print role
-        print(f"PPT upload - Session name: {session.get('name')}")  # Debug: print name
-        
-        if session.get('role') != 'instructor':
-            print(f"PPT upload authorization failed. Role in session: {session.get('role')}")  # Debug
-            return jsonify({'success': False, 'message': 'Unauthorized - Please login as instructor'}), 403
-        instructor_name = session.get('name')
-        if not instructor_name:
-            print("PPT upload - Instructor name not found in session")  # Debug
-            return jsonify({'success': False, 'message': 'Instructor name not found in session. Please login again.'}), 401
-
-        # Get the course ID from the request
-        course_id = request.form.get('courseId')
-        if not course_id:
-            return jsonify({'success': False, 'message': 'Course ID is required'}), 400
-
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'message': 'No file part'}), 400
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'success': False, 'message': 'No selected file'}), 400
-        
-        print(f"Attempting to upload PPT file: {file.filename}")  # Debug
-        
-        if file and allowed_ppt_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['PPT_UPLOAD_FOLDER'], filename)
-            
-            # Check if file already exists and handle accordingly
-            if os.path.exists(filepath):
-                print(f"PPT file {filename} already exists, will overwrite")  # Debug
-            
-            file.save(filepath)
-            print(f"PPT file saved to: {filepath}")  # Debug
-            
-            now = datetime.datetime.now().isoformat()
-            ppt_data = {
-                'filetype': 'ppt',
-                'last_updated': now,
-                'instructor_name': instructor_name,
-                'course_id': course_id
-            }
-            r.hset('ppt_files', filename, json.dumps(ppt_data)) # Store in a new 'ppt_files' hash
-            print(f"PPT data saved to Redis for {filename}")  # Debug
-            
-            return jsonify({'success': True, 'filename': filename, 'filetype': 'ppt', 'last_updated': now, 'instructor_name': instructor_name, 'course_id': course_id})
-        else:
-            print(f"File type not allowed for: {file.filename}")  # Debug
-            return jsonify({'success': False, 'message': 'Invalid file type, only PPT/PPTX allowed'}), 400
-            
-    except Exception as e:
-        print(f"Error in upload_ppt: {str(e)}")  # Debug
-        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+# PPT upload endpoint removed
 
 @app.route('/api/upload_audio', methods=['POST']) # New endpoint for Audio uploads
 def upload_audio():
@@ -514,38 +446,7 @@ def list_docx_files():
                 docx_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
     return jsonify(docx_list)
 
-@app.route('/api/ppt_files', methods=['GET']) # New endpoint to list PPT files
-def list_ppt_files():
-    ppt_raw = r.hgetall('ppt_files')
-    ppt_list = []
-    current_role = session.get('role')
-    current_instructor_name = session.get('name')
-    course_id = request.args.get('courseId')  # Get course_id from query parameters
-
-    for k, v_json in ppt_raw.items():
-        try:
-            v_data = json.loads(v_json)
-            
-            # Filter by course_id if provided
-            if course_id and v_data.get('course_id') != course_id:
-                continue
-                
-            ppt_item = {
-                'filename': k,
-                'filetype': v_data.get('filetype'),
-                'last_updated': v_data.get('last_updated'),
-                'instructor_name': v_data.get('instructor_name'),
-                'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
-            }
-            if current_role == 'instructor':
-                if v_data.get('instructor_name') == current_instructor_name:
-                    ppt_list.append(ppt_item)
-            else: # For students or other roles, show all ppt files
-                ppt_list.append(ppt_item)
-        except json.JSONDecodeError:
-            if current_role != 'instructor' and not course_id:
-                ppt_list.append({'filename': k, 'filetype': 'unknown', 'last_updated': 'N/A', 'instructor_name': 'Unknown', 'course_id': ''})
-    return jsonify(ppt_list)
+# PPT files listing endpoint removed
 
 @app.route('/api/audio_files', methods=['GET']) # New endpoint to list Audio files
 def list_audio_files():
@@ -728,49 +629,7 @@ def delete_docx_file(filename):
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-@app.route('/api/ppt/<filename>', methods=['DELETE']) # New endpoint to delete a PPT file
-def delete_ppt_file(filename):
-    if session.get('role') != 'instructor':
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-
-    current_instructor_name = session.get('name')
-    if not current_instructor_name:
-        return jsonify({'success': False, 'message': 'Instructor name not found in session.'}), 401
-
-    secure_name = secure_filename(filename)
-    if not secure_name:
-        return jsonify({'success': False, 'message': 'Invalid filename'}), 400
-
-    ppt_json = r.hget('ppt_files', secure_name)
-    if not ppt_json:
-        filepath_check = os.path.join(app.config['PPT_UPLOAD_FOLDER'], secure_name)
-        if os.path.exists(filepath_check):
-             return jsonify({'success': False, 'message': f'{secure_name} not found in database. Cannot confirm ownership.'}), 404
-        return jsonify({'success': False, 'message': f'{secure_name} not found in database or filesystem.'}), 404
-    try:
-        ppt_data = json.loads(ppt_json)
-        owner_instructor = ppt_data.get('instructor_name')
-
-        if owner_instructor != current_instructor_name:
-            return jsonify({'success': False, 'message': 'Unauthorized. You do not own this PPT file.'}), 403
-
-        filepath = os.path.join(app.config['PPT_UPLOAD_FOLDER'], secure_name)
-        if os.path.exists(filepath):
-            os.remove(filepath)
-        
-        result = r.hdel('ppt_files', secure_name)
-        if result > 0:
-            return jsonify({'success': True, 'message': f'{secure_name} deleted successfully.'})
-        else:
-            # This case implies a race condition or unexpected Redis state.
-            fs_status_message = "File on filesystem might have been removed."
-            if os.path.exists(filepath): 
-                fs_status_message = "File on filesystem still exists."
-            return jsonify({'success': False, 'message': f'Error: {secure_name} not found in database for deletion. {fs_status_message}'}), 500
-    except json.JSONDecodeError:
-        return jsonify({'success': False, 'message': 'Error decoding PPT data from database.'}), 500
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+# PPT file delete endpoint removed
 
 @app.route('/api/audio/<filename>', methods=['DELETE']) # New endpoint to delete an Audio file
 def delete_audio_file(filename):
@@ -886,28 +745,7 @@ def docx_progress(student, filename):
             return jsonify({'success': True})        
         return jsonify({'success': False, 'message': 'Missing maxProgressPercent'}), 400
 
-@app.route('/api/progress_ppt/<student>/<filename>', methods=['GET', 'POST']) # New endpoint for PPT progress
-def ppt_progress(student, filename):
-    # Key for storing slide-based progress for a student and a PPT file
-    # e.g., progress_ppt:student_name:example.pptx -> {"currentSlide": 5, "maxProgressPercent": 50}
-    key = f'progress_ppt:{student}:{secure_filename(filename)}'
-    if request.method == 'GET':
-        progress_data_json = r.get(key)
-        if progress_data_json:
-            progress_data = json.loads(progress_data_json)
-            return jsonify({
-                'currentSlide': int(progress_data.get('currentSlide', 1)),
-                'maxProgressPercent': float(progress_data.get('maxProgressPercent', 0))
-            })
-        return jsonify({'currentSlide': 1, 'maxProgressPercent': 0}) # Default if no progress found
-    else: # POST
-        data = request.json
-        current_slide = data.get('currentSlide')
-        max_progress_percent = data.get('maxProgressPercent')
-        if current_slide is not None and max_progress_percent is not None:
-            r.set(key, json.dumps({'currentSlide': current_slide, 'maxProgressPercent': max_progress_percent}))
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'message': 'Missing currentSlide or maxProgressPercent'}), 400
+# PPT progress endpoint removed
 
 @app.route('/api/progress_audio/<student>/<filename>', methods=['GET', 'POST']) # New endpoint for Audio progress
 def audio_progress(student, filename):
@@ -939,9 +777,7 @@ def serve_docx(filename):
     # No need to call secure_filename() again here.
     return send_from_directory(app.config['DOCX_UPLOAD_FOLDER'], filename)
 
-@app.route('/uploads_ppt/<filename>') # New route to serve PPT files
-def serve_ppt(filename):
-    return send_from_directory(app.config['PPT_UPLOAD_FOLDER'], filename)
+# PPT file serving route removed
 
 @app.route('/uploads_audio/<filename>') # New route to serve Audio files
 def serve_audio(filename):
@@ -957,119 +793,9 @@ def static_proxy(path):
         return send_from_directory('.', 'pdf_tracker.html')
     if path == 'docx_tracker.html': # Serve docx_tracker.html
         return send_from_directory('.', 'docx_tracker.html')
-    if path == 'ppt_tracker.html': # Serve ppt_tracker.html
-        return send_from_directory('.', 'ppt_tracker.html')
     return send_from_directory('.', path)
 
-@app.route('/api/ppt_info/<filename>', methods=['GET']) # New endpoint to get PPT slide information
-def get_ppt_info(filename):
-    """
-    Returns information about a PPT file including total slides and content.
-    Extracts actual slide content from uploaded PPT/PPTX files.
-    """
-    try:
-        # Check if file exists
-        filepath = os.path.join(app.config['PPT_UPLOAD_FOLDER'], secure_filename(filename))
-        if not os.path.exists(filepath):
-            return jsonify({'success': False, 'message': 'PPT file not found'}), 404
-        
-        total_slides = 5  # Default fallback
-        slides_content = []
-          # Try to read actual PPT/PPTX file
-        try:
-            if not PPTX_AVAILABLE:
-                raise ImportError("python-pptx not available")
-                
-            prs = Presentation(filepath)
-            total_slides = len(prs.slides)
-            
-            # Extract content from each slide
-            for i, slide in enumerate(prs.slides):
-                slide_data = {
-                    'slide_number': i + 1,
-                    'title': '',
-                    'content': [],
-                    'notes': ''
-                }
-                
-                # Extract text from all shapes in the slide
-                slide_texts = []
-                title_found = False
-                
-                for shape in slide.shapes:
-                    if hasattr(shape, "text") and shape.text.strip():
-                        text_content = shape.text.strip()
-                        
-                        # First significant text is usually the title
-                        if not title_found and len(text_content) > 0:
-                            slide_data['title'] = text_content[:100]  # Limit title length
-                            title_found = True
-                        else:
-                            # Split content into lines and add to content array
-                            lines = text_content.split('\n')
-                            for line in lines:
-                                if line.strip():
-                                    slide_data['content'].append(line.strip())
-                
-                # If no title found, use default
-                if not slide_data['title']:
-                    slide_data['title'] = f"Slide {i + 1}"
-                
-                # Get slide notes if available
-                if slide.notes_slide and slide.notes_slide.notes_text_frame:
-                    slide_data['notes'] = slide.notes_slide.notes_text_frame.text.strip()
-                
-                slides_content.append(slide_data)
-                
-        except ImportError:
-            print("python-pptx not installed. Using fallback.")
-            return jsonify({'success': False, 'message': 'python-pptx library not available'}), 500
-            
-        except Exception as e:
-            print(f"Error reading PPT file {filename}: {str(e)}")
-            return jsonify({'success': False, 'message': f'Error reading PPT file: {str(e)}'}), 500
-        
-        return jsonify({
-            'success': True,
-            'totalSlides': total_slides,
-            'slidesContent': slides_content,
-            'filename': filename
-        })
-        
-    except Exception as e:
-        print(f"Error getting PPT info for {filename}: {str(e)}")
-        return jsonify({'success': False, 'message': f'Error processing PPT file: {str(e)}'}), 500
-
-@app.route('/api/ppt_slide/<filename>/<int:slide_number>', methods=['GET']) # New endpoint to serve individual slides as images
-def get_ppt_slide(filename, slide_number):
-    """
-    Returns a specific slide from a PPT as an image.
-    In a real implementation, this would convert the PPT slide to an image.
-    For now, we'll return a placeholder image or redirect.
-    """
-    try:
-        # Check if file exists
-        filepath = os.path.join(app.config['PPT_UPLOAD_FOLDER'], secure_filename(filename))
-        if not os.path.exists(filepath):
-            return jsonify({'success': False, 'message': 'PPT file not found'}), 404
-        
-        # For demonstration purposes, we'll return a placeholder response
-        # In a real implementation, you would:
-        # 1. Convert the specific slide to an image (PNG/JPEG)
-        # 2. Cache the converted images
-        # 3. Serve the image file
-        
-        # For now, return an error indicating this feature needs implementation
-        return jsonify({
-            'success': False, 
-            'message': 'PPT to image conversion not implemented. Please implement server-side PPT conversion.',
-            'slide_number': slide_number,
-            'filename': filename
-        }), 501  # Not Implemented
-        
-    except Exception as e:
-        print(f"Error getting slide {slide_number} from {filename}: {str(e)}")
-        return jsonify({'success': False, 'message': f'Error processing slide: {str(e)}'}), 500
+# PPT info and slide endpoints removed
 
 @app.route('/api/courses', methods=['GET'])
 def list_courses():
@@ -1193,8 +919,7 @@ def delete_course(course_id):
         if course_index is None:
             return jsonify({'success': False, 'message': 'Course not found or you are not authorized to delete it'}), 404
 
-        # Delete all files associated with this course
-        # For PDFs
+        # Delete all files associated with this course        # For PDFs
         for pdf_key in r.hkeys('pdfs') or []:
             pdf_data = json.loads(r.hget('pdfs', pdf_key) or '{}')
             if pdf_data.get('course_id') == course_id:
@@ -1204,17 +929,6 @@ def delete_course(course_id):
                     os.remove(filepath)
                 # Remove from Redis
                 r.hdel('pdfs', pdf_key)
-
-        # For PPTs
-        for ppt_key in r.hkeys('ppt_files') or []:
-            ppt_data = json.loads(r.hget('ppt_files', ppt_key) or '{}')
-            if ppt_data.get('course_id') == course_id:
-                # Delete file from filesystem
-                filepath = os.path.join(app.config['PPT_UPLOAD_FOLDER'], ppt_key)
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                # Remove from Redis
-                r.hdel('ppt_files', ppt_key)
 
         # For DOCXs
         for docx_key in r.hkeys('docx_files') or []:

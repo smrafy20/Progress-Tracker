@@ -38,19 +38,10 @@
             </thead>
             <tbody></tbody>
         </table>
-        
-        <h2>Available DOCX Files</h2>
+          <h2>Available DOCX Files</h2>
         <table border="1" id="docxTable">
             <thead>
                 <tr><th>File Name</th><th>File Type</th><th>Progress (%)</th><th>Uploaded By</th><th>Action</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-
-        <h2>Available PPT Files</h2>
-        <table border="1" id="pptTable">
-            <thead>
-                <tr><th>File Name</th><th>File Type</th><th>Progress (Slide)</th><th>Uploaded By</th><th>Action</th></tr>
             </thead>
             <tbody></tbody>
         </table>
@@ -106,12 +97,10 @@
                     
                     // Load course info
                     await loadCourseInfo(selectedCourseId);
-                    
-                    // Now load all the materials
+                      // Now load all the materials
                     loadVideos();
                     loadPdfs();
                     loadDocxFiles();
-                    loadPptFiles();
                     loadAudioFiles(); // Load audio files
                 } else {
                     // Redirect if not authenticated
@@ -207,9 +196,7 @@
             tr.innerHTML = `<td>${p.filename}</td><td>${p.filetype}</td><td>${progressText}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='pdf_tracker.html?pdf=${encodeURIComponent(p.filename)}'">View</button></td>`;
             tbody.appendChild(tr);
         }
-    }
-
-    async function loadDocxFiles() {
+    }    async function loadDocxFiles() {
         if (!studentName) return;
         if (!selectedCourseId) return;
 
@@ -250,41 +237,6 @@
         }
     }
 
-    async function loadPptFiles() {
-        if (!studentName) return;
-        if (!selectedCourseId) return;
-
-        const courseParam = `?courseId=${selectedCourseId}`;
-        const res = await fetch(`/api/ppt_files${courseParam}`, {credentials: 'include'});
-        const pptFiles = await res.json();
-        const tbody = document.querySelector('#pptTable tbody');
-        tbody.innerHTML = '';
-        
-        if (pptFiles.length === 0) {
-            const tr = document.createElement('tr');
-            tr.innerHTML = '<td colspan="5" style="text-align: center;">No PPT files available for this course</td>';
-            tbody.appendChild(tr);
-            return;
-        }
-        
-        for (const p of pptFiles) {
-            let progressText = "Not Started";
-            try {
-                const progRes = await fetch(`/api/progress_ppt/${studentName}/${p.filename}`, {credentials: 'include'});
-                if(progRes.ok){
-                    const progData = await progRes.json();
-                    if (progData && progData.currentSlide) {
-                        progressText = `Slide ${progData.currentSlide} (${progData.maxProgressPercent ? progData.maxProgressPercent.toFixed(1) : '0.0'}%)`;
-                    }
-                }
-            } catch (e) { console.error("Error fetching PPT progress:", e); }
-            const tr = document.createElement('tr');
-            const instructorName = p.instructor_name || 'Unknown';
-            tr.innerHTML = `<td>${p.filename}</td><td>${p.filetype}</td><td>${progressText}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='ppt_tracker.html?ppt=${encodeURIComponent(p.filename)}'">View</button></td>`;
-            tbody.appendChild(tr);
-        }
-    }
-
     async function loadAudioFiles() {
         if (!studentName) return;
         if (!selectedCourseId) return;
@@ -316,14 +268,11 @@
             tr.innerHTML = `<td>${a.filename}</td><td>${a.filetype}</td><td>${progress.toFixed(1)}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='audio_tracker.html?audio=${encodeURIComponent(a.filename)}'">Listen</button></td>`;
             tbody.appendChild(tr);
         }
-    }
-
-    document.addEventListener('visibilitychange', () => {
+    }    document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
             loadVideos();
             loadPdfs();
             loadDocxFiles();
-            loadPptFiles();
             loadAudioFiles(); // Load audio files
         }
     });

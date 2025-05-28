@@ -42,14 +42,6 @@
             <tbody></tbody>
         </table>
 
-        <h2>Available PPT Files</h2> <!-- New section for PPT files -->
-        <table border="1" id="pptTable">
-            <thead>
-                <tr><th>File Name</th><th>File Type</th><th>Progress (Slide)</th><th>Uploaded By</th><th>Action</th></tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-
         <h2>Available Audio Files</h2> <!-- New section for Audio files -->
         <table border="1" id="audioTable">
             <thead>
@@ -177,32 +169,7 @@
             
             tr.innerHTML = `<td>${d.filename}</td><td>${d.filetype}</td><td>${progressText}</td><td>${instructorName}</td><td>${actionButtons}</td>`;
             tbody.appendChild(tr);
-        }
-    }async function loadPptFiles() { // New function to load PPT files
-        if (!studentName) await getStudentName();
-        if (!studentName) return; // Stop if student name couldn't be obtained
-
-        const res = await fetch('/api/ppt_files', {credentials: 'include'});
-        const pptFiles = await res.json();
-        const tbody = document.querySelector('#pptTable tbody');
-        tbody.innerHTML = '';
-        for (const p of pptFiles) {
-            let progressText = "Not Started";
-            try {
-                const progRes = await fetch(`/api/progress_ppt/${studentName}/${p.filename}`, {credentials: 'include'});
-                if(progRes.ok){
-                    const progData = await progRes.json();
-                    if (progData && progData.currentSlide) {
-                        progressText = `Slide ${progData.currentSlide} (${progData.maxProgressPercent ? progData.maxProgressPercent.toFixed(1) : '0.0'}%)`;
-                    }
-                }
-            } catch (e) { console.error("Error fetching PPT progress:", e); }
-            const tr = document.createElement('tr');
-            const instructorName = p.instructor_name || 'Unknown';
-            tr.innerHTML = `<td>${p.filename}</td><td>${p.filetype}</td><td>${progressText}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='ppt_tracker.html?ppt=${encodeURIComponent(p.filename)}'">View</button></td>`;
-            tbody.appendChild(tr);
-        }
-    }    async function loadAudioFiles() { // New function to load Audio files
+        }    }    async function loadAudioFiles() { // New function to load Audio files
         if (!studentName) await getStudentName();
         if (!studentName) return; // Stop if student name couldn't be obtained
 
@@ -224,14 +191,11 @@
             tr.innerHTML = `<td>${a.filename}</td><td>${a.filetype}</td><td>${progress.toFixed(1)}</td><td>${instructorName}</td><td><button class='btn' onclick="window.location.href='audio_tracker.html?audio=${encodeURIComponent(a.filename)}'">Listen</button></td>`;
             tbody.appendChild(tr);
         }
-    }
-
-    async function initializeDashboard() {
+    }    async function initializeDashboard() {
         await getStudentName(); // Ensure studentName is set first
         loadVideos();
         loadPdfs(); // Load PDFs
         loadDocxFiles(); // Load DOCX files
-        loadPptFiles(); // Load PPT files
         loadAudioFiles(); // Load Audio files
     }
 
