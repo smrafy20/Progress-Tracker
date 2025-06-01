@@ -79,7 +79,7 @@
             }
             if (!studentName) {
                 alert("Student name is required to track progress.");
-                window.location.href = 'login.html'; // Or student_dashboard.html
+                window.location.href = 'login.html';
             }
         }
 
@@ -133,7 +133,7 @@
             audioFilename = getQueryParam('audio');
             if (!audioFilename) {
                 alert('No audio file specified!');
-                window.location.href = 'student_dashboard.html'; // Or student.html
+                window.location.href = 'student_dashboard.html';
                 return;
             }
             audioSource.src = '/uploads_audio/' + audioFilename;
