@@ -342,6 +342,23 @@ nav ul li button.logout-btn:hover {
     background-color: #c9302c;
 }
 
+/* Style for back to dashboard button */
+nav ul li button.back-dashboard-btn {
+    background-color: #28a745 !important;
+    color: white !important;
+    border: none !important;
+    cursor: pointer;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1em;
+    font-weight: bold;
+    padding: 8px 16px !important;
+    border-radius: 4px !important;
+}
+
+nav ul li button.back-dashboard-btn:hover {
+    background-color: #218838 !important;
+}
+
 /* Make the site logo/name more prominent */
 nav .site-title {
     font-size: 1.5em;

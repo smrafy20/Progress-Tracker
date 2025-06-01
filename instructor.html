@@ -9,6 +9,9 @@
 <body>    <nav>
         <ul>
             <li><span class="site-title">Training PRO</span></li> <!-- Changed site title -->
+            <li style="text-align: center;">
+                <button onclick="goBackToDashboard()" class="btn" style="background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px;">DASHBOARD</button>
+            </li>
             <li class="nav-right">
                 <span class="instructor-name">Welcome, <span id="instructorName">Instructor</span></span>
                 <button onclick="logout()" class="logout-btn">Logout</button>
@@ -20,13 +23,7 @@
             <p class="welcome-message">Manage materials for this course</p>
         </div>
 
-        <div class="action-buttons">
-            <button onclick="goBackToDashboard()" class="btn">← Back to Dashboard</button>
-            <button onclick="createCourse()" class="btn">Create New Course</button>
-        </div>
-        
 
-        
         <form id="uploadForm" enctype="multipart/form-data">
             <label for="fileInput">Upload new file (Video, PDF, DOCX, PPT, or Audio):</label>
             <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx,.mp3,.wav,.ogg">
@@ -97,15 +94,6 @@
     // Go back to main instructor dashboard
     function goBackToDashboard() {
         window.location.href = 'instructor_dashboard.html';
-    }
-      // Redirect to course creation page
-    async function createCourse() {
-        try {
-            window.location.href = 'create_course.html';
-        } catch (error) {
-            console.error('Error navigating to create course page:', error);
-            alert('Error navigating to create course page. Please try again.');
-        }
     }
 
     async function logout() {
