@@ -4,3 +4,4 @@ redis
 Werkzeug
 python-pptx
 Pillow
+pdf2image

@@ -30,6 +30,7 @@ pip install redis
 pip install python-pptx
 pip install Pillow
 pip install werkzeug
+pip install pdf2image
 ```
 
 #### LibreOffice Setup (Windows):
@@ -60,7 +61,7 @@ sudo dnf install python3 python3-pip redis libreoffice
 
 #### Python Dependencies:
 ```bash
-pip3 install flask redis python-pptx Pillow werkzeug
+pip3 install flask redis python-pptx Pillow werkzeug pdf2image
 ```
 
 #### LibreOffice Setup (Linux):
@@ -203,6 +204,8 @@ training-pro/
    - Ensure LibreOffice is properly installed
    - Check if the application has write permissions to `uploads_ppt_images/`
    - Verify PPT file is not corrupted
+   - **Linux-specific**: Install `pdf2image` for better conversion: `pip3 install pdf2image`
+   - If PPT viewer shows blank/error, check server logs for conversion errors
 
 4. **File Upload Issues:**
    - Check file size limits in `app.py`
