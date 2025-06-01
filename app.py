@@ -5,9 +5,6 @@ import os
 import redis
 import datetime  # Added for timestamp
 import json
-from pptx import Presentation
-from PIL import Image, ImageDraw, ImageFont
-import io
 
 
 
@@ -410,44 +407,7 @@ def convert_ppt_to_images_win32com(ppt_path, output_folder, filename_base):
             pass
         raise e
 
-def convert_ppt_to_images_comtypes(ppt_path, output_folder, filename_base):
-    """Convert PPT slides to images using comtypes (Windows only)"""
-    try:
-        import comtypes.client
 
-        # Create a subfolder for this PPT's images
-        ppt_image_folder = os.path.join(output_folder, filename_base)
-        if not os.path.exists(ppt_image_folder):
-            os.makedirs(ppt_image_folder)
-
-        # Initialize PowerPoint application
-        powerpoint = comtypes.client.CreateObject("Powerpoint.Application")
-        powerpoint.Visible = 1
-
-        # Open the presentation
-        presentation = powerpoint.Presentations.Open(os.path.abspath(ppt_path))
-        slide_count = presentation.Slides.Count
-
-        print(f"Found {slide_count} slides in presentation")
-
-        # Export each slide as image
-        for i in range(1, slide_count + 1):
-            image_path = os.path.join(ppt_image_folder, f"slide_{i:03d}.png")
-            # Use absolute path to avoid issues
-            abs_image_path = os.path.abspath(image_path)
-            print(f"Exporting slide {i} to {abs_image_path}")
-            # Export slide as PNG with high resolution
-            presentation.Slides(i).Export(abs_image_path, "PNG", 1920, 1440)  # High resolution
-
-        # Close presentation and quit PowerPoint
-        presentation.Close()
-        powerpoint.Quit()
-
-        return slide_count
-
-    except Exception as e:
-        print(f"Error in comtypes conversion: {str(e)}")
-        raise e
 
 def convert_ppt_to_images_libreoffice(ppt_path, output_folder, filename_base):
     """Convert PPT slides to images using LibreOffice (Cross-platform)"""
@@ -493,143 +453,7 @@ def convert_ppt_to_images_libreoffice(ppt_path, output_folder, filename_base):
         print(f"Error in LibreOffice conversion: {str(e)}")
         raise e
 
-def convert_ppt_to_images_improved_pil(ppt_path, output_folder, filename_base):
-    """Improved PIL-based conversion with better text handling"""
-    try:
-        # Create a subfolder for this PPT's images
-        ppt_image_folder = os.path.join(output_folder, filename_base)
-        if not os.path.exists(ppt_image_folder):
-            os.makedirs(ppt_image_folder)
 
-        # Load the presentation
-        prs = Presentation(ppt_path)
-        slide_count = len(prs.slides)
-
-        # Convert each slide to image
-        for i, slide in enumerate(prs.slides):
-            # Create a larger, higher quality image
-            img_width, img_height = 1920, 1440  # Higher resolution
-            img = Image.new('RGB', (img_width, img_height), 'white')
-            draw = ImageDraw.Draw(img)
-
-            # Extract all text content from slide with positioning
-            text_elements = []
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text.strip():
-                    # Try to get position information
-                    try:
-                        left = shape.left.inches if hasattr(shape, 'left') else 0
-                        top = shape.top.inches if hasattr(shape, 'top') else 0
-                        width = shape.width.inches if hasattr(shape, 'width') else 10
-                        height = shape.height.inches if hasattr(shape, 'height') else 1
-                    except:
-                        left, top, width, height = 0, 0, 10, 1
-
-                    text_elements.append({
-                        'text': shape.text.strip(),
-                        'left': left,
-                        'top': top,
-                        'width': width,
-                        'height': height
-                    })
-
-            # Sort by top position to maintain reading order
-            text_elements.sort(key=lambda x: x['top'])
-
-            # Draw text on image with improved formatting
-            if text_elements:
-                try:
-                    # Try multiple font options
-                    font_large = None
-                    font_medium = None
-                    font_small = None
-
-                    for font_name in ["arial.ttf", "calibri.ttf", "times.ttf"]:
-                        try:
-                            font_large = ImageFont.truetype(font_name, 36)
-                            font_medium = ImageFont.truetype(font_name, 24)
-                            font_small = ImageFont.truetype(font_name, 18)
-                            break
-                        except:
-                            continue
-
-                    if not font_large:
-                        font_large = ImageFont.load_default()
-                        font_medium = ImageFont.load_default()
-                        font_small = ImageFont.load_default()
-
-                except:
-                    font_large = ImageFont.load_default()
-                    font_medium = ImageFont.load_default()
-                    font_small = ImageFont.load_default()
-
-                # Draw each text element
-                for idx, element in enumerate(text_elements):
-                    text = element['text']
-
-                    # Convert inches to pixels (approximate)
-                    x = int(element['left'] * 96)  # 96 DPI
-                    y = int(element['top'] * 96)
-                    max_width = int(element['width'] * 96)
-
-                    # Ensure coordinates are within image bounds
-                    x = max(50, min(x, img_width - 200))
-                    y = max(50, min(y, img_height - 100))
-
-                    # Choose font size based on text length and position
-                    if len(text) < 50 and idx == 0:  # Likely a title
-                        font = font_large
-                        color = 'black'
-                    elif len(text) < 100:
-                        font = font_medium
-                        color = 'black'
-                    else:
-                        font = font_small
-                        color = 'black'
-
-                    # Word wrap text
-                    words = text.split()
-                    lines = []
-                    current_line = []
-
-                    for word in words:
-                        test_line = ' '.join(current_line + [word])
-                        # Estimate text width (rough approximation)
-                        if len(test_line) * 12 < max_width or not current_line:
-                            current_line.append(word)
-                        else:
-                            if current_line:
-                                lines.append(' '.join(current_line))
-                            current_line = [word]
-
-                    if current_line:
-                        lines.append(' '.join(current_line))
-
-                    # Draw each line
-                    line_height = 30
-                    for line_idx, line in enumerate(lines[:15]):  # Limit to 15 lines per element
-                        line_y = y + (line_idx * line_height)
-                        if line_y > img_height - 50:
-                            break
-                        draw.text((x, line_y), line, fill=color, font=font)
-
-            else:
-                # If no text, add slide number
-                try:
-                    font = ImageFont.truetype("arial.ttf", 48)
-                except:
-                    font = ImageFont.load_default()
-                draw.text((img_width//2 - 100, img_height//2), f"Slide {i+1}", fill='black', font=font)
-
-            # Save the image
-            image_path = os.path.join(ppt_image_folder, f"slide_{i+1:03d}.png")
-            img.save(image_path, 'PNG', quality=95)
-
-        return slide_count
-
-    except Exception as e:
-        print(f"Error in improved PIL conversion: {str(e)}")
-        raise e
 
 def convert_ppt_to_images(ppt_path, output_folder, filename_base):
     """Convert PPT slides to images using the best available method"""
@@ -640,16 +464,12 @@ def convert_ppt_to_images(ppt_path, output_folder, filename_base):
     # Try methods in order of preference
     methods = []
 
-    # On Windows, try win32com first (highest quality), then comtypes as backup
+    # On Windows, try win32com first (highest quality)
     if platform.system() == "Windows":
         methods.append(("Win32COM (PowerPoint)", convert_ppt_to_images_win32com))
-        methods.append(("ComTypes (PowerPoint)", convert_ppt_to_images_comtypes))
 
     # Try LibreOffice (cross-platform)
     methods.append(("LibreOffice", convert_ppt_to_images_libreoffice))
-
-    # Fallback to improved PIL method
-    methods.append(("Improved PIL", convert_ppt_to_images_improved_pil))
 
     last_error = None
     for method_name, method_func in methods:
