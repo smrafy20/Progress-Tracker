@@ -1239,46 +1239,138 @@ def delete_course(course_id):
         if course_index is None:
             return jsonify({'success': False, 'message': 'Course not found or you are not authorized to delete it'}), 404
 
-        # Delete all files associated with this course        # For PDFs
+        # Delete all files associated with this course
+        deleted_files = []
+
+        # For PDFs
         for pdf_key in r.hkeys('pdfs') or []:
-            pdf_data = json.loads(r.hget('pdfs', pdf_key) or '{}')
-            if pdf_data.get('course_id') == course_id:
-                # Delete file from filesystem
-                filepath = os.path.join(app.config['PDF_UPLOAD_FOLDER'], pdf_key)
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                # Remove from Redis
-                r.hdel('pdfs', pdf_key)
+            try:
+                pdf_data = json.loads(r.hget('pdfs', pdf_key) or '{}')
+                if pdf_data.get('course_id') == course_id:
+                    # Delete file from filesystem
+                    filepath = os.path.join(app.config['PDF_UPLOAD_FOLDER'], pdf_key)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                    # Remove from Redis
+                    r.hdel('pdfs', pdf_key)
+                    deleted_files.append(f"PDF: {pdf_key}")
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"Error deleting PDF {pdf_key}: {str(e)}")
 
         # For DOCXs
         for docx_key in r.hkeys('docx_files') or []:
-            docx_data = json.loads(r.hget('docx_files', docx_key) or '{}')
-            if docx_data.get('course_id') == course_id:
-                # Delete file from filesystem
-                filepath = os.path.join(app.config['DOCX_UPLOAD_FOLDER'], docx_key)
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                # Remove from Redis
-                r.hdel('docx_files', docx_key)
+            try:
+                docx_data = json.loads(r.hget('docx_files', docx_key) or '{}')
+                if docx_data.get('course_id') == course_id:
+                    # Delete file from filesystem
+                    filepath = os.path.join(app.config['DOCX_UPLOAD_FOLDER'], docx_key)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                    # Remove from Redis
+                    r.hdel('docx_files', docx_key)
+                    deleted_files.append(f"DOCX: {docx_key}")
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"Error deleting DOCX {docx_key}: {str(e)}")
 
         # For Videos
         for video_key in r.hkeys('videos') or []:
-            video_data = json.loads(r.hget('videos', video_key) or '{}')
-            if video_data.get('course_id') == course_id:
-                # Delete file from filesystem
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], video_key)
-                if os.path.exists(filepath):
-                    os.remove(filepath)
-                # Remove from Redis
-                r.hdel('videos', video_key)
+            try:
+                video_data = json.loads(r.hget('videos', video_key) or '{}')
+                if video_data.get('course_id') == course_id:
+                    # Delete file from filesystem
+                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], video_key)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                    # Remove from Redis
+                    r.hdel('videos', video_key)
+                    deleted_files.append(f"Video: {video_key}")
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"Error deleting Video {video_key}: {str(e)}")
+
+        # For PPTs (MISSING IN ORIGINAL CODE - BUG FIX)
+        for ppt_key in r.hkeys('ppts') or []:
+            try:
+                ppt_data = json.loads(r.hget('ppts', ppt_key) or '{}')
+                if ppt_data.get('course_id') == course_id:
+                    # Delete the original PPT file
+                    filepath = os.path.join(app.config['PPT_UPLOAD_FOLDER'], ppt_key)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+
+                    # Delete the converted images folder
+                    filename_base = os.path.splitext(ppt_key)[0]
+                    images_folder = os.path.join(app.config['PPT_IMAGES_FOLDER'], filename_base)
+                    if os.path.exists(images_folder):
+                        import shutil
+                        shutil.rmtree(images_folder)
+
+                    # Remove from Redis
+                    r.hdel('ppts', ppt_key)
+                    deleted_files.append(f"PPT: {ppt_key}")
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"Error deleting PPT {ppt_key}: {str(e)}")
+
+        # For Audio files (MISSING IN ORIGINAL CODE - BUG FIX)
+        for audio_key in r.hkeys('audio_files') or []:
+            try:
+                audio_data = json.loads(r.hget('audio_files', audio_key) or '{}')
+                if audio_data.get('course_id') == course_id:
+                    # Delete file from filesystem
+                    filepath = os.path.join(app.config['AUDIO_UPLOAD_FOLDER'], audio_key)
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+                    # Remove from Redis
+                    r.hdel('audio_files', audio_key)
+                    deleted_files.append(f"Audio: {audio_key}")
+            except (json.JSONDecodeError, Exception) as e:
+                print(f"Error deleting Audio {audio_key}: {str(e)}")
+
+        # Clean up progress tracking data for all deleted files (BUG FIX)
+        progress_keys_deleted = []
+        try:
+            # Get all progress keys from Redis
+            all_keys = r.keys('progress*')
+            for key in all_keys:
+                key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+
+                # Check if this progress key belongs to any of the deleted files
+                for deleted_file in deleted_files:
+                    _, filename = deleted_file.split(': ', 1)
+
+                    # Check different progress key patterns
+                    # Use secure_filename to match the pattern used in progress storage
+                    secure_name = secure_filename(filename)
+                    if (f':{secure_name}' in key_str and
+                        ('progress:' in key_str or 'progress_pdf:' in key_str or
+                         'progress_docx:' in key_str or 'progress_ppt:' in key_str or
+                         'progress_audio:' in key_str)):
+
+                        r.delete(key_str)
+                        progress_keys_deleted.append(key_str)
+                        break  # Found match, no need to check other files
+
+        except Exception as e:
+            print(f"Error cleaning up progress data: {str(e)}")
 
         # Remove the course
-        deleted_course = courses.pop(course_index)
+        courses.pop(course_index)
 
         # Save updated courses list
         r.set('courses', json.dumps(courses))
 
-        return jsonify({'success': True, 'message': 'Course and all associated files deleted successfully'})
+        # Log the deletion summary
+        print(f"Course '{course_id}' deleted successfully:")
+        print(f"  - Files deleted: {len(deleted_files)}")
+        for file in deleted_files:
+            print(f"    * {file}")
+        print(f"  - Progress records cleaned: {len(progress_keys_deleted)}")
+
+        return jsonify({
+            'success': True,
+            'message': f'Course and all associated files deleted successfully. Removed {len(deleted_files)} files and {len(progress_keys_deleted)} progress records.',
+            'deleted_files_count': len(deleted_files),
+            'deleted_progress_count': len(progress_keys_deleted)
+        })
     except Exception as e:
         print(f"Error deleting course: {str(e)}")
         return jsonify({'success': False, 'message': f'Error deleting course: {str(e)}'}), 500

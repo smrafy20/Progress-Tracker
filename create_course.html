@@ -111,7 +111,12 @@
             const data = await res.json();
             
             if (data.success) {
-                alert('Course deleted successfully!');
+                // Show detailed success message with file count information
+                let message = 'Course deleted successfully!';
+                if (data.deleted_files_count !== undefined) {
+                    message += `\n\nDeleted ${data.deleted_files_count} files and cleaned ${data.deleted_progress_count} progress records.`;
+                }
+                alert(message);
                 loadCourses(); // Refresh the list
             } else {
                 alert('Error deleting course: ' + (data.message || 'Unknown error'));
