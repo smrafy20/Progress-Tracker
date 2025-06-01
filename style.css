@@ -34,32 +34,34 @@ h1:after {
     border-radius: 2px;
 }
 
-.video-container {
+.video-container, .audio-container {
     position: relative;
-    width: 720px;
-    max-width: 100%;
+    width: 98%;
+    max-width: 1200px;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 8px 30px rgba(0,0,0,0.15);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    margin: 0 auto;
 }
 
-.video-container:hover {
+.video-container:hover, .audio-container:hover {
     transform: translateY(-5px);
     box-shadow: 0 12px 40px rgba(0,0,0,0.2);
 }
 
-video {
+video, audio {
     display: block;
     width: 100%;
     border-radius: 8px;
     background-color: #000;
+    min-height: 60px;
 }
 
 .progress-info {
-    margin-top: 25px;
-    width: 720px;
-    max-width: 100%;
+    margin-top: 20px;
+    width: 98%;
+    max-width: 1200px;
     text-align: center;
     font-size: 1.1em;
     color: #2c3e50;
@@ -67,6 +69,8 @@ video {
     background-color: white;
     border-radius: 12px;
     box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    margin-left: auto;
+    margin-right: auto;
 }
 
 #progressBar {
@@ -432,11 +436,17 @@ nav .site-title {
         font-size: 2rem;
     }
     
-    .video-container, .progress-info {
-        width: 95%;
+    .video-container, .audio-container, .progress-info {
+        width: 98%;
     }
-    
+
     .progress-info {
         padding: 10px;
+        font-size: 1em;
+    }
+
+    .main-container {
+        margin: 10px auto;
+        padding: 15px;
     }
 }

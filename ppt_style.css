@@ -4,9 +4,9 @@ body {
     flex-direction: column;
     align-items: center;
     padding-top: 80px;  /* Add padding for fixed navbar */
-    padding-left: 30px;
-    padding-right: 30px;
-    padding-bottom: 30px;
+    padding-left: 20px;
+    padding-right: 20px;
+    padding-bottom: 20px;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     min-height: 100vh;
     margin: 0;
@@ -100,30 +100,12 @@ nav .site-title {
     color: #2196f3;
 }
 
-h1 {
-    color: #2c3e50;
-    font-size: 2.5rem;
-    margin-bottom: 25px;
-    text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
-    position: relative;
-}
-
-h1:after {
-    content: "";
-    position: absolute;
-    bottom: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 4px;
-    background: linear-gradient(90deg, #3f51b5, #2196f3);
-    border-radius: 2px;
-}
+/* Removed h1 styles since heading was removed for better space utilization */
 
 .ppt-container {
     position: relative;
-    width: 95%;
-    max-width: 1024px;
+    width: 98%;
+    max-width: 1200px;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 8px 30px rgba(0,0,0,0.15);
@@ -139,8 +121,8 @@ h1:after {
 
 #pptViewer {
     width: 100%;
-    height: 800px;
-    max-height: 75vh;
+    height: 900px;
+    max-height: 85vh;
     overflow: auto;
     display: flex;
     justify-content: center;
@@ -200,9 +182,9 @@ h1:after {
 }
 
 .progress-info {
-    margin-top: 25px;
-    width: 800px;
-    max-width: 100%;
+    margin-top: 20px;
+    width: 98%;
+    max-width: 1200px;
     text-align: center;
     font-size: 1.1em;
     color: #2c3e50;
@@ -281,29 +263,35 @@ h1:after {
 }
 
 @media (max-width: 840px) {
-    h1 {
-        font-size: 2rem;
+    body {
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-top: 70px;
     }
-    
+
     .ppt-container, .progress-info {
-        width: 95%;
+        width: 98%;
     }
-    
+
     .progress-info {
         padding: 10px;
+        font-size: 1em;
     }
-    
+
     #pptViewer {
-        height: 600px;
+        height: 700px;
+        max-height: 80vh;
     }
-    
+
     .ppt-controls {
         flex-direction: column;
         gap: 10px;
+        padding: 10px;
     }
-    
+
     .zoom-controls {
         order: -1;
         margin-left: 0;
+        justify-content: center;
     }
 }
