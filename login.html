@@ -43,7 +43,7 @@
         });
         const data = await res.json();
         if (data.success) {
-            if (role === 'instructor') window.location.href = 'instructor.html';
+            if (role === 'instructor') window.location.href = 'instructor_dashboard.html';
             else window.location.href = 'course_selection.html';  // Send students to course selection first
         } else {
             alert('Login failed: ' + data.message);

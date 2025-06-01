@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructor Dashboard - Training PRO</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .course-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .course-card {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        
+        .course-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .course-name {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .course-instructor {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .course-date {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+        
+        .course-stats {
+            font-size: 12px;
+            color: #555;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #eee;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><span class="site-title">Training PRO</span></li>
+            <li class="nav-right">
+                <span class="instructor-name">Welcome, <span id="instructorName">Instructor</span></span>
+                <button onclick="logout()" class="logout-btn">Logout</button>
+            </li>
+        </ul>
+    </nav>
+    
+    <div class="main-container">
+        <div class="dashboard-header">
+            <h1>Course Dashboard</h1>
+            <p class="welcome-message">Select a course and upload your materials</p>
+        </div>
+        
+        <div class="action-buttons">
+            <button onclick="createCourse()" class="btn-primary">Create New Course</button>
+        </div>
+        
+        <div id="courseGrid" class="course-grid">
+            <!-- Course cards will be added here dynamically -->
+            <div class="loading-message">Loading courses...</div>
+        </div>
+    </div>
+    
+    <script>
+    let courses = [];
+    
+    // Load instructor info and check authentication
+    async function loadInstructorInfo() {
+        try {
+            const res = await fetch('/api/get_session_info', {credentials: 'include'});
+            const data = await res.json();
+            
+            if (data.success && data.role === 'instructor') {
+                document.getElementById('instructorName').textContent = data.name;
+            } else {
+                // Redirect to login if not authenticated as instructor
+                alert('Please login as instructor first.');
+                window.location.href = 'login.html';
+            }
+        } catch (error) {
+            console.error('Error checking auth:', error);
+            alert('Authentication error. Please login again.');
+            window.location.href = 'login.html';
+        }
+    }
+    
+    // Load available courses
+    async function loadCourses() {
+        try {
+            const res = await fetch('/api/courses', {credentials: 'include'});
+            courses = await res.json();
+            
+            const courseGrid = document.getElementById('courseGrid');
+            courseGrid.innerHTML = ''; // Clear loading message
+            
+            if (courses.length === 0) {
+                courseGrid.innerHTML = '<p>No courses available yet. Create your first course to get started!</p>';
+                return;
+            }
+            
+            // Load file counts for each course
+            await loadCourseStats();
+            
+            courses.forEach(course => {
+                const courseCard = document.createElement('div');
+                courseCard.className = 'course-card';
+                courseCard.onclick = () => enterCourse(course.id, course.name);
+                
+                const courseDate = new Date(course.created_at);
+                const formattedDate = courseDate.toLocaleDateString();
+                
+                const fileCount = course.fileCount || 0;
+                
+                courseCard.innerHTML = `
+                    <div class="course-name">${course.name}</div>
+                    <div class="course-instructor">Created by: ${course.instructor}</div>
+                    <div class="course-date">Created: ${formattedDate}</div>
+                    <div class="course-stats">${fileCount} files uploaded</div>
+                `;
+                
+                courseGrid.appendChild(courseCard);
+            });
+        } catch (error) {
+            console.error('Error loading courses:', error);
+            document.getElementById('courseGrid').innerHTML = '<p>Error loading courses. Please refresh the page.</p>';
+        }
+    }
+    
+    // Load file statistics for each course
+    async function loadCourseStats() {
+        for (let course of courses) {
+            try {
+                // Count files for this course
+                let totalFiles = 0;
+                
+                // Count videos
+                const videoRes = await fetch(`/api/videos?courseId=${course.id}`, {credentials: 'include'});
+                const videos = await videoRes.json();
+                totalFiles += videos.length;
+                
+                // Count PDFs
+                const pdfRes = await fetch(`/api/pdfs?courseId=${course.id}`, {credentials: 'include'});
+                const pdfs = await pdfRes.json();
+                totalFiles += pdfs.length;
+                
+                // Count DOCX files
+                const docxRes = await fetch(`/api/docx_files?courseId=${course.id}`, {credentials: 'include'});
+                const docxFiles = await docxRes.json();
+                totalFiles += docxFiles.length;
+                
+                // Count PPT files
+                const pptRes = await fetch(`/api/ppts?courseId=${course.id}`, {credentials: 'include'});
+                const pptFiles = await pptRes.json();
+                totalFiles += pptFiles.length;
+                
+                // Count Audio files
+                const audioRes = await fetch(`/api/audio_files?courseId=${course.id}`, {credentials: 'include'});
+                const audioFiles = await audioRes.json();
+                totalFiles += audioFiles.length;
+                
+                course.fileCount = totalFiles;
+            } catch (error) {
+                console.error(`Error loading stats for course ${course.id}:`, error);
+                course.fileCount = 0;
+            }
+        }
+    }
+    
+    // Handle course selection - enter course management
+    function enterCourse(courseId, courseName) {
+        // Store the selected course info in session storage
+        sessionStorage.setItem('selectedCourseId', courseId);
+        sessionStorage.setItem('selectedCourseName', courseName);
+        window.location.href = 'instructor.html';
+    }
+    
+    // Redirect to course creation page
+    function createCourse() {
+        window.location.href = 'create_course.html';
+    }
+    
+    function logout() {
+        fetch('/api/logout', {
+            method: 'POST',
+            credentials: 'include'
+        }).then(() => {
+            window.location.href = 'login.html';
+        });
+    }
+    
+    // Load everything on page load
+    loadInstructorInfo();
+    loadCourses();
+    </script>
+</body>
+</html>

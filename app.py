@@ -751,9 +751,9 @@ def list_videos():
                 'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
 
+            # For multi-instructor collaboration: show all videos in a course to any instructor
             if current_role == 'instructor':
-                if v_data.get('instructor_name') == current_instructor_name:
-                    videos_list.append(video_item)
+                videos_list.append(video_item)  # Show all videos to instructors
             else: # For students or other roles, show all videos
                 videos_list.append(video_item)
 
@@ -787,9 +787,9 @@ def list_pdfs():
                 'instructor_name': v_data.get('instructor_name'),
                 'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
+            # For multi-instructor collaboration: show all PDFs in a course to any instructor
             if current_role == 'instructor':
-                if v_data.get('instructor_name') == current_instructor_name:
-                    pdfs_list.append(pdf_item)
+                pdfs_list.append(pdf_item)  # Show all PDFs to instructors
             else: # For students or other roles, show all pdfs
                 pdfs_list.append(pdf_item)
         except json.JSONDecodeError:
@@ -820,9 +820,9 @@ def list_docx_files():
                 'instructor_name': v_data.get('instructor_name'),
                 'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
+            # For multi-instructor collaboration: show all DOCX files in a course to any instructor
             if current_role == 'instructor':
-                if v_data.get('instructor_name') == current_instructor_name:
-                    docx_list.append(docx_item)
+                docx_list.append(docx_item)  # Show all DOCX files to instructors
             else: # For students or other roles, show all docx files
                 docx_list.append(docx_item)
         except json.JSONDecodeError:
@@ -854,9 +854,9 @@ def list_ppts():
                 'course_id': v_data.get('course_id', ''),  # Include course_id with default empty string
                 'slide_count': v_data.get('slide_count', 0)  # Include slide count
             }
+            # For multi-instructor collaboration: show all PPT files in a course to any instructor
             if current_role == 'instructor':
-                if v_data.get('instructor_name') == current_instructor_name:
-                    ppts_list.append(ppt_item)
+                ppts_list.append(ppt_item)  # Show all PPT files to instructors
             else: # For students or other roles, show all ppt files
                 ppts_list.append(ppt_item)
         except json.JSONDecodeError:
@@ -887,9 +887,9 @@ def list_audio_files():
                 'instructor_name': v_data.get('instructor_name'),
                 'course_id': v_data.get('course_id', '')  # Include course_id with default empty string
             }
+            # For multi-instructor collaboration: show all audio files in a course to any instructor
             if current_role == 'instructor':
-                if v_data.get('instructor_name') == current_instructor_name:
-                    audio_list.append(audio_item)
+                audio_list.append(audio_item)  # Show all audio files to instructors
             else: # For students or other roles, show all audio files
                 audio_list.append(audio_item)
         except json.JSONDecodeError:

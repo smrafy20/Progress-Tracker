@@ -16,24 +16,19 @@
         </ul>
     </nav>    <div class="main-container">
         <div class="dashboard-header">
-            <h1>Instructor Dashboard</h1>
-            <p class="welcome-message">Manage your training materials</p>
+            <h1 id="courseTitle">Course Management</h1>
+            <p class="welcome-message">Manage materials for this course</p>
         </div>
-        
+
         <div class="action-buttons">
+            <button onclick="goBackToDashboard()" class="btn">← Back to Dashboard</button>
             <button onclick="createCourse()" class="btn">Create New Course</button>
         </div>
         
 
         
         <form id="uploadForm" enctype="multipart/form-data">
-       <div class="course-selection">
-            <label for="courseSelect">Select Course:</label>
-            <select id="courseSelect" onchange="changeCourse()">
-                <option value="">All Courses</option>
-                <!-- Course options will be added dynamically -->
-            </select>
-        </div>            <label for="fileInput">Upload new file (Video, PDF, DOCX, PPT, or Audio):</label>
+            <label for="fileInput">Upload new file (Video, PDF, DOCX, PPT, or Audio):</label>
             <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx,.mp3,.wav,.ogg">
             <input type="hidden" id="courseIdInput" name="courseId" value="">
             <button type="submit" class="btn">Upload File</button>
@@ -52,16 +47,32 @@
         </table>
     </div>    <script>
     let currentCourseId = '';
+    let currentCourseName = '';
     let courses = [];
-    
-    // Load instructor name on page load
+
+    // Load instructor name and course info on page load
     async function loadInstructorInfo() {
         try {
             const res = await fetch('/api/get_session_info', {credentials: 'include'});
             const data = await res.json();
             if (data.success && data.name) {
                 document.getElementById('instructorName').textContent = data.name;
-                loadCourses(); // Load courses after confirming instructor is logged in
+
+                // Get selected course from session storage
+                currentCourseId = sessionStorage.getItem('selectedCourseId');
+                currentCourseName = sessionStorage.getItem('selectedCourseName');
+
+                if (!currentCourseId) {
+                    // If no course selected, redirect back to dashboard
+                    window.location.href = 'instructor_dashboard.html';
+                    return;
+                }
+
+                // Update page title and course input
+                document.getElementById('courseTitle').textContent = `Course: ${currentCourseName}`;
+                document.getElementById('courseIdInput').value = currentCourseId;
+
+                loadCourses(); // Load courses for reference
             } else {
                 // Redirect to login if session is invalid
                 window.location.href = 'login.html';
@@ -72,45 +83,20 @@
         }
     }
     
-    // Load courses created by the instructor
+    // Load courses for reference (to get course names for file display)
     async function loadCourses() {
         try {
             const res = await fetch('/api/courses', {credentials: 'include'});
             courses = await res.json();
-            
-            const courseSelect = document.getElementById('courseSelect');
-            // Keep the "All Courses" option and add new courses
-            courseSelect.innerHTML = '<option value="">All Courses</option>';
-            
-            courses.forEach(course => {
-                const option = document.createElement('option');
-                option.value = course.id;
-                option.textContent = course.name;
-                courseSelect.appendChild(option);
-            });
-            
-            // Restore selected course from session storage if available
-            const savedCourseId = sessionStorage.getItem('instructorSelectedCourseId');
-            if (savedCourseId) {
-                courseSelect.value = savedCourseId;
-                currentCourseId = savedCourseId;
-                document.getElementById('courseIdInput').value = currentCourseId;
-            }
-            
-            loadFiles(); // Load files for the selected course
+            loadFiles(); // Load files for the current course
         } catch (error) {
             console.error('Error loading courses:', error);
         }
     }
-    
-    // Handle course selection change
-    function changeCourse() {
-        const courseSelect = document.getElementById('courseSelect');
-        currentCourseId = courseSelect.value;
-        document.getElementById('courseIdInput').value = currentCourseId;
-        // Save selected course ID to session storage
-        sessionStorage.setItem('instructorSelectedCourseId', currentCourseId);
-        loadFiles(); // Reload files for the selected course
+
+    // Go back to main instructor dashboard
+    function goBackToDashboard() {
+        window.location.href = 'instructor_dashboard.html';
     }
       // Redirect to course creation page
     async function createCourse() {
@@ -137,15 +123,15 @@
         try {
             // Create array to store all files
             const allFiles = [];
-            
-            // Get the course filter (if any)
-            const courseParam = currentCourseId ? `?courseId=${currentCourseId}` : '';
-            
+
+            // Only load files for the current course
+            const courseParam = `?courseId=${currentCourseId}`;
+
             // Fetch videos
             const videoRes = await fetch(`/api/videos${courseParam}`, {credentials: 'include'});
             const videos = await videoRes.json();
             allFiles.push(...videos.map(v => ({...v, deleteEndpoint: `/api/video/${v.filename}`})));
-            
+
             // Fetch PDFs
             const pdfRes = await fetch(`/api/pdfs${courseParam}`, {credentials: 'include'});
             const pdfs = await pdfRes.json();
@@ -164,13 +150,19 @@
             const audioRes = await fetch(`/api/audio_files${courseParam}`, {credentials: 'include'});
             const audioFiles = await audioRes.json();
             allFiles.push(...audioFiles.map(a => ({...a, deleteEndpoint: `/api/audio/${a.filename}`})));
-            
+
             const tbody = document.querySelector('#filesTable tbody');
             tbody.innerHTML = '';
-              allFiles.forEach(file => {                const tr = document.createElement('tr');
+
+            if (allFiles.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">No files uploaded to this course yet.</td></tr>';
+                return;
+            }
+
+            allFiles.forEach(file => {                const tr = document.createElement('tr');
                 const lastUpdated = file.last_updated ? new Date(file.last_updated).toLocaleString() : 'N/A';
                 const course = courses.find(c => c.id === file.course_id);
-                const courseName = course?.name || 'Unknown Course';
+                const courseName = course?.name || currentCourseName;
                 const createdBy = course?.instructor || 'Unknown';
                 const uploadedBy = file.instructor_name || 'Unknown';
                 tr.innerHTML = `
@@ -248,17 +240,9 @@
                         '/api/upload';
           const formData = new FormData();
         formData.append('file', file);
-        
-        // Add course ID to form data if selected
-        const courseIdInput = document.getElementById('courseIdInput');
-        const selectedCourseId = courseIdInput.value;
-        
-        if (!selectedCourseId) {
-            alert('Please select a course before uploading a file.');
-            return;
-        }
-        
-        formData.append('courseId', selectedCourseId);
+
+        // Add current course ID to form data
+        formData.append('courseId', currentCourseId);
         
         try {
             const res = await fetch(endpoint, {
