@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Video Platform</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><span class="site-title">Video Platform</span></li>
+            <li></li> <!-- Empty cell for spacing -->
+            <li></li> <!-- Empty cell for spacing -->
+        </ul>
+    </nav>
+
+    <div class="main-container">
+        <h1>Login</h1>
+        <form id="loginForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" placeholder="Enter your name" required>
+            
+            <div class="radio-group" style="margin-bottom: 15px;">
+                <label>Role:</label><br>
+                <label><input type="radio" name="role" value="instructor" required> Instructor</label>
+                <label><input type="radio" name="role" value="student" required> Student</label>
+            </div>
+            
+            <button type="submit" class="btn">Login</button>
+        </form>
+    </div>
+
+    <script>    document.getElementById('loginForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const name = document.getElementById('name').value;
+        const role = document.querySelector('input[name="role"]:checked').value;
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'include',
+            body: JSON.stringify({name, role})
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (role === 'instructor') window.location.href = 'instructor.html';
+            else window.location.href = 'course_selection.html';  // Send students to course selection first
+        } else {
+            alert('Login failed: ' + data.message);
+        }
+    };
+    </script>
+</body>
+</html> 

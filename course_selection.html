@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Selection - Training PRO</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .course-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .course-card {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .course-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .course-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .course-instructor {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .course-date {
+            font-size: 12px;
+            color: #999;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><span class="site-title">Training PRO</span></li>
+            <li class="nav-right">
+                <span class="student-name">Welcome, <span id="studentName">Student</span></span>
+                <button onclick="logout()" class="logout-btn">Logout</button>
+            </li>
+        </ul>
+    </nav>
+    
+    <div class="main-container">
+        <div class="dashboard-header">
+            <h1>Course Selection</h1>
+            <p class="welcome-message">Select a course to access learning materials</p>
+        </div>
+        
+        <div id="courseGrid" class="course-grid">
+            <!-- Course cards will be added here dynamically -->
+            <div class="loading-message">Loading courses...</div>
+        </div>
+    </div>
+    
+    <script>
+    // Load student info and check authentication
+    async function loadStudentInfo() {
+        try {
+            const res = await fetch('/api/get_session_info', {credentials: 'include'});
+            const data = await res.json();
+            
+            if (data.success && data.role === 'student') {
+                document.getElementById('studentName').textContent = data.name;
+            } else {
+                // Redirect to login if not authenticated as student
+                alert('Please login as student first.');
+                window.location.href = 'login.html';
+            }
+        } catch (error) {
+            console.error('Error checking auth:', error);
+            alert('Authentication error. Please login again.');
+            window.location.href = 'login.html';
+        }
+    }
+    
+    // Load available courses
+    async function loadCourses() {
+        try {
+            const res = await fetch('/api/courses', {credentials: 'include'});
+            const courses = await res.json();
+            
+            const courseGrid = document.getElementById('courseGrid');
+            courseGrid.innerHTML = ''; // Clear loading message
+            
+            if (courses.length === 0) {
+                courseGrid.innerHTML = '<p>No courses available yet. Please check back later.</p>';
+                return;
+            }
+            
+            courses.forEach(course => {
+                const courseCard = document.createElement('div');
+                courseCard.className = 'course-card';
+                courseCard.onclick = () => selectCourse(course.id);
+                
+                const courseDate = new Date(course.created_at);
+                const formattedDate = courseDate.toLocaleDateString();
+                
+                courseCard.innerHTML = `
+                    <div class="course-name">${course.name}</div>
+                    <div class="course-instructor">Instructor: ${course.instructor}</div>
+                    <div class="course-date">Created: ${formattedDate}</div>
+                `;
+                
+                courseGrid.appendChild(courseCard);
+            });
+        } catch (error) {
+            console.error('Error loading courses:', error);
+            document.getElementById('courseGrid').innerHTML = '<p>Error loading courses. Please refresh the page.</p>';
+        }
+    }
+      // Handle course selection
+    function selectCourse(courseId) {
+        // Store the selected course ID in session storage for use in student dashboard
+        sessionStorage.setItem('selectedCourseId', courseId);
+        window.location.href = 'student_dashboard.html';
+    }
+    
+    function logout() {
+        fetch('/api/logout', {
+            method: 'POST',
+            credentials: 'include'
+        }).then(() => {
+            window.location.href = 'login.html';
+        });
+    }
+    
+    // Load everything on page load
+    loadStudentInfo();
+    loadCourses();
+    </script>
+</body>
+</html>

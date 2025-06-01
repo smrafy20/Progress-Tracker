@@ -1,0 +1,6 @@
+Flask
+Flask-Cors
+redis
+Werkzeug
+python-pptx
+Pillow
