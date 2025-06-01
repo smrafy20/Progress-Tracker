@@ -4,14 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Course - Training PRO</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="modern-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="fade-in">
     <nav>
         <ul>
             <li><span class="site-title">Training PRO</span></li>
             <li style="text-align: center;">
-                <button onclick="goBack()" class="back-dashboard-btn">Dashboard</button>
+                <button onclick="goBack()" class="back-dashboard-btn">📚 Dashboard</button>
             </li>
             <li class="nav-right">
                 <span class="instructor-name">Welcome, <span id="instructorName">Instructor</span></span>
@@ -19,11 +22,11 @@
             </li>
         </ul>
     </nav>
-    
-    <div class="main-container">
+
+    <div class="main-container slide-in">
         <div class="dashboard-header">
             <h1>Create New Course</h1>
-            <p class="welcome-message">Create a new course for your students</p>
+            <p class="welcome-message">🎓 Create a new course for your students</p>
         </div>
         
         <form id="createCourseForm">

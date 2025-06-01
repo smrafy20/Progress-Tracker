@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Progress Tracker</title>
+    <title>Video Player - Training PRO</title>
+    <link rel="stylesheet" href="modern-style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body>    <nav>
+<body class="fade-in">
+    <nav>
         <ul>
             <li><span class="site-title">Training PRO</span></li>
-            <li><a href="student_dashboard.html">Dashboard</a></li>
+            <li><a href="student_dashboard.html" class="btn btn-secondary">📚 Dashboard</a></li>
             <li class="nav-right">
                 <span class="student-name">Welcome, <span id="studentName">Student</span></span>
                 <button onclick="logout()" class="logout-btn">Logout</button>
@@ -20,9 +21,7 @@
         </ul>
     </nav>
 
-    <div class="main-container">
-        <h1></h1>
-
+    <div class="main-container slide-in">
         <div class="video-container">
             <video id="myVideo" controls>
                 <source id="videoSource" src="" type="video/mp4">
@@ -30,13 +29,13 @@
             </video>
         </div>
 
-        <div class="progress-info">
-            <div>You've watched <span id="progressText">0.0</span>% of this video</div>
+        <div class="progress-info slide-in">
+            <div>🎬 You've watched <span id="progressText">0.0</span>% of this video</div>
             <progress id="progressBar" value="0" max="100"></progress>
-            
+
             <div class="control-buttons">
-                <button class="btn reset" id="resetProgress">Reset Progress</button>
-                <button class="btn" id="jumpToMax">Continue Watching</button>
+                <button class="btn btn-error" id="resetProgress">🔄 Reset Progress</button>
+                <button class="btn btn-success" id="jumpToMax">🎬 Continue Watching</button>
             </div>
         </div>
     </div>    <script>

@@ -3,45 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instructor Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Course Management - Training PRO</title>
+    <link rel="stylesheet" href="modern-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body>    <nav>
+<body class="fade-in">
+    <nav>
         <ul>
-            <li><span class="site-title">Training PRO</span></li> <!-- Changed site title -->
+            <li><span class="site-title">Training PRO</span></li>
             <li style="text-align: center;">
-                <button onclick="goBackToDashboard()" class="btn" style="background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px;">DASHBOARD</button>
+                <button onclick="goBackToDashboard()" class="back-dashboard-btn">📚 DASHBOARD</button>
             </li>
             <li class="nav-right">
                 <span class="instructor-name">Welcome, <span id="instructorName">Instructor</span></span>
                 <button onclick="logout()" class="logout-btn">Logout</button>
             </li>
         </ul>
-    </nav>    <div class="main-container">
+    </nav>
+
+    <div class="main-container fade-in">
         <div class="dashboard-header">
             <h1 id="courseTitle">Course Management</h1>
-            <p class="welcome-message">Manage materials for this course</p>
+            <p class="welcome-message">📁 Manage materials for this course</p>
         </div>
 
+        <!-- Upload Section -->
+        <div class="card slide-in">
+            <div class="card-header">
+                <h2 class="card-title">📤 Upload New Content</h2>
+                <p class="card-subtitle">Add videos, documents, presentations, and audio files</p>
+            </div>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <label for="fileInput">Select File to Upload</label>
+                <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx,.mp3,.wav,.ogg">
+                <input type="hidden" id="courseIdInput" name="courseId" value="">
+                <button type="submit" class="btn btn-primary">📤 Upload File</button>
+            </form>
+        </div>
 
-        <form id="uploadForm" enctype="multipart/form-data">
-            <label for="fileInput">Upload new file (Video, PDF, DOCX, PPT, or Audio):</label>
-            <input type="file" id="fileInput" accept="video/*,.pdf,.docx,.ppt,.pptx,.mp3,.wav,.ogg">
-            <input type="hidden" id="courseIdInput" name="courseId" value="">
-            <button type="submit" class="btn">Upload File</button>
-        </form>        <h2>Uploaded Files</h2>
-        <table border="1" id="filesTable">
-            <thead>                <tr>                    <th>File Name</th>
-                    <th>File Type</th>
-                    <th>Last Updated</th>
-                    <th>Course Name</th>
-                    <th>Course Created By</th>
-                    <th>Uploaded By</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <!-- Files Table Section -->
+        <div class="card slide-in">
+            <div class="card-header">
+                <h2 class="card-title">📋 Course Materials</h2>
+                <p class="card-subtitle">Manage all uploaded files for this course</p>
+            </div>
+            <table id="filesTable">
+                <thead>
+                    <tr>
+                        <th>📁 File Name</th>
+                        <th>📋 Type</th>
+                        <th>📅 Last Updated</th>
+                        <th>📚 Course</th>
+                        <th>👨‍🏫 Created By</th>
+                        <th>📤 Uploaded By</th>
+                        <th>⚡ Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>    <script>
     let currentCourseId = '';
     let currentCourseName = '';
@@ -160,7 +182,7 @@
                     <td>${courseName}</td>
                     <td>${createdBy}</td>
                     <td>${uploadedBy}</td>
-                    <td><button class="btn reset" onclick="deleteFile('${file.filename}', '${file.filetype}')">Delete</button></td>
+                    <td><button class="btn btn-error" onclick="deleteFile('${file.filename}', '${file.filetype}')" style="padding: var(--space-1) var(--space-3); font-size: 0.75rem;">🗑️ Delete</button></td>
                 `;
                 tbody.appendChild(tr);
             });

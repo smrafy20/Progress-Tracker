@@ -3,40 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DOCX Viewer - Training PRO</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="word.css">
+    <title>Document Reader - Training PRO</title>
+    <link rel="stylesheet" href="modern-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Include docx-preview library -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.7.1/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.1.18/dist/docx-preview.js"></script>
 </head>
-<body>
+<body class="fade-in">
     <nav>
         <ul>
             <li><span class="site-title">Training PRO</span></li>
             <li class="nav-right">
                 <span class="student-name">Welcome, <span id="studentName">Student</span></span>
-                <button onclick="goBack()" class="logout-btn">Back to Dashboard</button>
+                <button onclick="goBack()" class="btn btn-secondary">📚 Back to Dashboard</button>
             </li>
         </ul>
     </nav>
 
-    <div class="container">
+    <div class="main-container slide-in">
         <div class="viewer-container" id="viewer-container" style="display: flex;">
             <div class="progress-container">
                 <div class="progress-bar" id="progress-bar"></div>
                 <div class="progress-text" id="progress-text">0%</div>
             </div>
             <div class="document-viewer" id="document-viewer">
-                <div class="loading">Loading document...</div>
+                <div class="loading">📄 Loading document...</div>
             </div>
         </div>
-        
-        <div class="progress-info">
-            <div>You've read <span id="progressDisplayText">0.0</span>% of this document</div>
+
+        <div class="progress-info slide-in">
+            <div>📖 You've read <span id="progressDisplayText">0.0</span>% of this document</div>
             <div class="control-buttons">
-                <button class="btn reset" id="resetProgress">Reset Progress</button>
-                <button class="btn" id="jumpToMax">Continue Reading</button>
+                <button class="btn btn-error" id="resetProgress">🔄 Reset Progress</button>
+                <button class="btn btn-success" id="jumpToMax">📖 Continue Reading</button>
             </div>
         </div>
     </div>

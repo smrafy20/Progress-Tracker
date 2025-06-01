@@ -4,9 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Training PRO</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="modern-style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body>
+<body class="fade-in">
     <nav>
         <ul>
             <li><span class="site-title">Training PRO</span></li>
@@ -15,19 +18,23 @@
         </ul>
     </nav>
 
-    <div class="main-container">
-        <h1>Welcome!!</h1>
-        <form id="loginForm">
-            <label for="name">Name:</label>
-            <input type="text" id="name" placeholder="Enter your name" required>
-            
-            <div class="radio-group" style="margin-bottom: 15px;">
-                <label>Role:</label><br>
-                <label><input type="radio" name="role" value="instructor" required> Instructor</label>
-                <label><input type="radio" name="role" value="student" required> Student</label>
+    <div class="main-container fade-in">
+        <div class="dashboard-header">
+            <h1>Welcome to Training PRO</h1>
+            <p class="welcome-message">Your Professional Learning Management System</p>
+        </div>
+
+        <form id="loginForm" class="slide-in">
+            <label for="name">Full Name</label>
+            <input type="text" id="name" placeholder="Enter your full name" required>
+
+            <div class="radio-group">
+                <label>Select Your Role</label>
+                <label><input type="radio" name="role" value="instructor" required> 🎓 Instructor</label>
+                <label><input type="radio" name="role" value="student" required> 📚 Student</label>
             </div>
-            
-            <button type="submit" class="btn">Login</button>
+
+            <button type="submit" class="btn btn-primary">Sign In</button>
         </form>
     </div>
 
